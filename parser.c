@@ -131,7 +131,32 @@ const char *error_to_string(Error_Type err)
     }
 }
 
-Result parse(Arena *arena, Parse_Tree *tree, Token_List list)
+Tree_Node *make_node_binop(Arena *a, Node_Type t, Tree_Node *lhs, Tree_Node *rhs)
+{
+    Tree_Node *r = arena_alloc(a, sizeof(*r));
+    r->type = t;
+    r->binop.lhs = lhs;
+    r->binop.rhs = rhs;
+    return r;
+}
+
+Tree_Node *make_node_unary(Arena *a, Node_Type t, Tree_Node *node)
+{
+    Tree_Node *r = arena_alloc(a, sizeof(*r));
+    r->type = t;
+    r->unary.node = node;
+    return r;
+}
+
+Tree_Node *make_node(Arena *a, Node_Type t, double value)
+{
+    Tree_Node *r = arena_alloc(a, sizeof(*r));
+    r->type = t;
+    r->value = value;
+    return r;
+}
+
+Result parse(Arena *a, Parse_Tree *tree, Token_List list)
 {
     Result result = {0};
 
@@ -146,7 +171,7 @@ Result parse(Arena *arena, Parse_Tree *tree, Token_List list)
         return result;
     }
 
-    Tree_Node *tree_root = parse_expr(arena, &parser, &result);
+    Tree_Node *tree_root = parse_expr(a, &parser, &result);
     tree->root = tree_root;
 
     if (parser.current.type != TOKEN_EOF) {
@@ -169,9 +194,9 @@ void parser_advance(Parser *parser)
     parser->current = parser->tokens.items[parser->cursor++];
 }
 
-Tree_Node *parse_expr(Arena *arena, Parser *parser, Result *result)
+Tree_Node *parse_expr(Arena *a, Parser *parser, Result *result)
 {
-    Tree_Node *result_node = parse_term(arena, parser, result);
+    Tree_Node *result_node = parse_term(a, parser, result);
     Token *cur = &parser->current;
 
     while (!result->error
@@ -179,27 +204,21 @@ Tree_Node *parse_expr(Arena *arena, Parser *parser, Result *result)
 
         if (cur->type == TOKEN_PLUS) {
             parser_advance(parser);
-            Tree_Node *add = arena_alloc(arena, sizeof(*add));
-            add->type = NODE_ADD;
-            add->binop.lhs = result_node;
-            add->binop.rhs = parse_term(arena, parser, result);
-            result_node = add;
+            result_node = make_node_binop(a, NODE_ADD, result_node,
+                                          parse_term(a, parser, result));
         } else if (cur->type == TOKEN_MINUS) {
             parser_advance(parser);
-            Tree_Node *sub = arena_alloc(arena, sizeof(*sub));
-            sub->type = NODE_SUBTRACT;
-            sub->binop.lhs = result_node;
-            sub->binop.rhs = parse_term(arena, parser, result);
-            result_node = sub;
+            result_node = make_node_binop(a, NODE_SUBTRACT, result_node,
+                                          parse_term(a, parser, result));
         }
     }
 
     return result_node;
 }
 
-Tree_Node *parse_term(Arena *arena, Parser *parser, Result *result)
+Tree_Node *parse_term(Arena *a, Parser *parser, Result *result)
 {
-    Tree_Node *result_node = parse_factor(arena, parser, result);
+    Tree_Node *result_node = parse_factor(a, parser, result);
     Token *cur = &parser->current;
 
     while (!result->error
@@ -207,31 +226,24 @@ Tree_Node *parse_term(Arena *arena, Parser *parser, Result *result)
 
         if (cur->type == TOKEN_MULTIPLY) {
             parser_advance(parser);
-            Tree_Node *mul = arena_alloc(arena, sizeof(*mul));
-            mul->type = NODE_MULTIPLY;
-            mul->binop.lhs = result_node;
-            mul->binop.rhs = parse_factor(arena, parser, result);
-            result_node = mul;
+            result_node = make_node_binop(a, NODE_MULTIPLY, result_node,
+                                          parse_factor(a, parser, result));
         } else if (cur->type == TOKEN_DIVIDE) {
-            parser_advance(parser);
-            Tree_Node *div = arena_alloc(arena, sizeof(*div));
-            div->type = NODE_DIVIDE;
-            div->binop.lhs = result_node;
-            div->binop.rhs = parse_factor(arena, parser, result);
-            result_node = div;
+            result_node = make_node_binop(a, NODE_DIVIDE, result_node,
+                                          parse_factor(a, parser, result));
         }
     }
 
     return result_node;
 }
 
-Tree_Node *parse_factor(Arena *arena, Parser *parser, Result *result)
+Tree_Node *parse_factor(Arena *a, Parser *parser, Result *result)
 {
     Token *cur = &parser->current;
 
     if (cur->type == TOKEN_LPAREN) {
         parser_advance(parser);
-        Tree_Node *result_node = parse_expr(arena, parser, result);
+        Tree_Node *result_node = parse_expr(a, parser, result);
 
         if (cur->type != TOKEN_RPAREN) {
             result->error = true;
@@ -246,27 +258,19 @@ Tree_Node *parse_factor(Arena *arena, Parser *parser, Result *result)
     }
 
     if (cur->type == TOKEN_NUMBER) {
-        Tree_Node *number = arena_alloc(arena, sizeof(*number));
-        number->type = NODE_NUMBER;
-        number->value = cur->value;
+        Tree_Node *number = make_node(a, NODE_NUMBER, cur->value);
         parser_advance(parser);
         return number;
     }
 
     if (cur->type == TOKEN_PLUS) {
         parser_advance(parser);
-        Tree_Node *plus = arena_alloc(arena, sizeof(*plus));
-        plus->type = NODE_PLUS;
-        plus->unary.node = parse_factor(arena, parser, result);
-        return plus;
+        return make_node_unary(a, NODE_PLUS, parse_factor(a, parser, result));
     }
 
     if (cur->type == TOKEN_MINUS) {
         parser_advance(parser);
-        Tree_Node *minus = arena_alloc(arena, sizeof(*minus));
-        minus->type = NODE_MINUS;
-        minus->unary.node = parse_factor(arena, parser, result);
-        return minus;
+        return make_node_unary(a, NODE_MINUS, parse_factor(a, parser, result));
     }
 
     result->error = true;

@@ -100,11 +100,15 @@ void print_token_list(Token_List list);
 
 const char *error_to_string(Error_Type err);
 
-Result parse(Arena *arena, Parse_Tree *tree, Token_List list);
+Tree_Node *make_node_binop(Arena *a, Node_Type t, Tree_Node *lhs, Tree_Node *rhs);
+Tree_Node *make_node_unary(Arena *a, Node_Type t, Tree_Node *node);
+Tree_Node *make_node(Arena *a, Node_Type t, double value);
+
+Result parse(Arena *a, Parse_Tree *tree, Token_List list);
 void parser_advance(Parser *parser);
-Tree_Node *parse_expr(Arena *arena, Parser *parser, Result *result);
-Tree_Node *parse_term(Arena *arena, Parser *parser, Result *result);
-Tree_Node *parse_factor(Arena *arena, Parser *parser, Result *result);
+Tree_Node *parse_expr(Arena *a, Parser *parser, Result *result);
+Tree_Node *parse_term(Arena *a, Parser *parser, Result *result);
+Tree_Node *parse_factor(Arena *a, Parser *parser, Result *result);
 void print_parse_tree(Parse_Tree tree);
 void print_tree_node(Tree_Node *root);
 
