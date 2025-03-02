@@ -20,8 +20,14 @@ bool program_compile_node(Program *p, Tree_Node *node)
         } break;
 
         case NODE_NUMBER: {
-            program_push_opcode(p, OP_PUSH);
-            program_push_operand(p, node->value);
+            program_push_opcode(p, OP_PUSH_NUM);
+            program_push_const(p, node->value);
+        } break;
+
+        case NODE_SYMBOL: {
+            assert('a' <= node->symbol && node->symbol <= 'z');
+            program_push_opcode(p, OP_PUSH_VAR);
+            program_push_var(p, node->symbol - 'a');
         } break;
 
         case NODE_ADD: {
@@ -70,7 +76,7 @@ void program_push_opcode(Program *p, Opcode op)
     da_append(p, op);
 }
 
-void program_push_operand(Program *p, double value)
+void program_push_const(Program *p, double value)
 {
     for (size_t i = 0; i < sizeof(value); ++i) {
         da_append(p, 0);
@@ -79,35 +85,54 @@ void program_push_operand(Program *p, double value)
     *loc = value;
 }
 
+void program_push_var(Program *p, char var)
+{
+    da_append(p, var);
+}
+
 void print_program(Program p)
 {
-    size_t op_i = 0;
+    size_t ip = 0;
     for (size_t i = 0; i < p.count; ++i) {
         Opcode op = p.items[i];
 
         switch (op) {
-            case OP_PUSH: {
-                printf("%ld: PUSH ", op_i++);
-                double operand = 0.0;
+            case OP_PUSH_NUM: {
+                printf("%ld: PUSH_NUM ", ip++);
+                double num = 0.0;
 
-                if (i + sizeof(operand) >= p.count)
+                if (i + sizeof(num) >= p.count)
                     continue;
 
                 ++i;
-                operand = *(double*)&p.items[i];
-                i += sizeof(operand) - 1;
+                num = *(double*)&p.items[i];
+                i += sizeof(num) - 1;
 
-                printf("%f\n", operand);
+                printf("%f\n", num);
             } break;
 
-            case OP_ADD: printf("%ld: ADD\n", op_i++); break;
-            case OP_SUB: printf("%ld: SUB\n", op_i++); break;
-            case OP_MUL: printf("%ld: MUL\n", op_i++); break;
-            case OP_DIV: printf("%ld: DIV\n", op_i++); break;
-            case OP_NEG: printf("%ld: NEG\n", op_i++); break;
+            case OP_PUSH_VAR: {
+                printf("%ld: PUSH_VAR ", ip++);
+                char var = 0;
+
+                if (i + sizeof(var) >= p.count)
+                    continue;
+
+                ++i;
+                var = p.items[i] + 'a';
+                // i += sizeof(var) - 1; // Increment by 0
+
+                printf("%c\n", var);
+            } break;
+
+            case OP_ADD: printf("%ld: ADD\n", ip++); break;
+            case OP_SUB: printf("%ld: SUB\n", ip++); break;
+            case OP_MUL: printf("%ld: MUL\n", ip++); break;
+            case OP_DIV: printf("%ld: DIV\n", ip++); break;
+            case OP_NEG: printf("%ld: NEG\n", ip++); break;
 
             default: {
-                printf("%ld: ?\n", op_i++);
+                printf("%ld: ?\n", ip++);
             } break;
         }
     }
@@ -159,11 +184,18 @@ bool vm_run(Vm *vm)
         Opcode op = program->items[vm->ip];
 
         switch (op) {
-            case OP_PUSH: {
+            case OP_PUSH_NUM: {
                 ++vm->ip;
                 double operand = *(double*)&program->items[vm->ip];
                 stack_push(stack, operand);
                 vm->ip += sizeof(operand);
+            } break;
+
+            case OP_PUSH_VAR: {
+                ++vm->ip;
+                char var = *(char*)&program->items[vm->ip];
+                stack_push(stack, vm->vars[(int)var]);
+                vm->ip += sizeof(var);
             } break;
 
             case OP_ADD: {

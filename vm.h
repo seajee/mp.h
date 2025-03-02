@@ -9,7 +9,8 @@
 
 typedef enum {
     OP_INVALID,
-    OP_PUSH,
+    OP_PUSH_NUM,
+    OP_PUSH_VAR,
     OP_ADD,
     OP_SUB,
     OP_MUL,
@@ -33,6 +34,7 @@ typedef struct {
 typedef struct {
     Program program;
     Stack stack;
+    char vars[26]; // a - z
     size_t ip;
 } Vm;
 
@@ -44,7 +46,8 @@ typedef struct {
 bool program_compile(Program *p, Parse_Tree parse_tree);
 bool program_compile_node(Program *p, Tree_Node *node);
 void program_push_opcode(Program *p, Opcode op);
-void program_push_operand(Program *p, double value);
+void program_push_const(Program *p, double value);
+void program_push_var(Program *p, char var);
 void print_program(Program p);
 
 void stack_push(Stack *stack, double n);
