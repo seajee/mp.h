@@ -46,7 +46,6 @@ typedef struct {
     Error_Type error_type;
     size_t error_position;
     Token faulty_token;
-    Token_Type expected_token;
     double value;
 } Result;
 

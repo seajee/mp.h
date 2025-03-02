@@ -5,44 +5,14 @@
 
 #include "util.h"
 
-const char *inst_to_string(Inst inst)
-{
-    switch (inst.type) {
-        case INST_INVALID: return "INST_INVALID";
-        case INST_PUSH:    return "INST_PUSH";
-        case INST_ADD:     return "INST_ADD";
-        case INST_SUB:     return "INST_SUB";
-        case INST_MUL:     return "INST_MUL";
-        case INST_DIV:     return "INST_DIV";
-        case INST_NEG:     return "INST_NEG";
-        default: {
-            UNREACHABLE();
-        } break;
-    }
-}
-
-Inst make_inst(Inst_Opcode type)
-{
-    Inst r = {0};
-    r.type = type;
-    return r;
-}
-
-Inst make_inst_push(double value)
-{
-    Inst r = make_inst(INST_PUSH);
-    r.value = value;
-    return r;
-}
-
 Program program_compile(Parse_Tree parse_tree)
 {
     Program program = {0};
-    compile_node(parse_tree.root, &program); // TODO: Handle compilation errors
+    program_compile_node(&program, parse_tree.root);
     return program;
 }
 
-bool compile_node(Tree_Node *node, Program *program)
+bool program_compile_node(Program *p, Tree_Node *node)
 {
     switch (node->type) {
         case NODE_INVALID: {
@@ -50,50 +20,41 @@ bool compile_node(Tree_Node *node, Program *program)
         } break;
 
         case NODE_NUMBER: {
-            Inst op = make_inst_push(node->value);
-            da_append(program, op);
+            program_push_opcode(p, OP_PUSH);
+            program_push_operand(p, node->value);
         } break;
 
         case NODE_ADD: {
-            if (!compile_node(node->binop.lhs, program)) return false;
-            if (!compile_node(node->binop.rhs, program)) return false;
-
-            Inst op = make_inst(INST_ADD);
-            da_append(program, op);
+            if (!program_compile_node(p, node->binop.lhs)) return false;
+            if (!program_compile_node(p, node->binop.rhs)) return false;
+            program_push_opcode(p, OP_ADD);
         } break;
 
         case NODE_SUBTRACT: {
-            if (!compile_node(node->binop.lhs, program)) return false;
-            if (!compile_node(node->binop.rhs, program)) return false;
-
-            Inst op = make_inst(INST_SUB);
-            da_append(program, op);
+            if (!program_compile_node(p, node->binop.lhs)) return false;
+            if (!program_compile_node(p, node->binop.rhs)) return false;
+            program_push_opcode(p, OP_SUB);
         } break;
 
         case NODE_MULTIPLY: {
-            if (!compile_node(node->binop.lhs, program)) return false;
-            if (!compile_node(node->binop.rhs, program)) return false;
-
-            Inst op = make_inst(INST_MUL);
-            da_append(program, op);
+            if (!program_compile_node(p, node->binop.lhs)) return false;
+            if (!program_compile_node(p, node->binop.rhs)) return false;
+            program_push_opcode(p, OP_MUL);
         } break;
 
         case NODE_DIVIDE: {
-            if (!compile_node(node->binop.lhs, program)) return false;
-            if (!compile_node(node->binop.rhs, program)) return false;
-
-            Inst op = make_inst(INST_DIV);
-            da_append(program, op);
+            if (!program_compile_node(p, node->binop.lhs)) return false;
+            if (!program_compile_node(p, node->binop.rhs)) return false;
+            program_push_opcode(p, OP_DIV);
         } break;
 
         case NODE_PLUS: {
-            if (!compile_node(node->unary.node, program)) return false;
+            if (!program_compile_node(p, node->unary.node)) return false;
         } break;
 
         case NODE_MINUS: {
-            if (!compile_node(node->unary.node, program)) return false;
-            Inst op = make_inst(INST_NEG);
-            da_append(program, op);
+            if (!program_compile_node(p, node->unary.node)) return false;
+            program_push_opcode(p, OP_NEG);
         } break;
 
         default: {
@@ -104,11 +65,51 @@ bool compile_node(Tree_Node *node, Program *program)
     return true;
 }
 
+void program_push_opcode(Program *p, Opcode op)
+{
+    da_append(p, op);
+}
+
+void program_push_operand(Program *p, double value)
+{
+    for (size_t i = 0; i < sizeof(value); ++i) {
+        da_append(p, 0);
+    }
+    double *loc = (double*)((p->items + p->count) - sizeof(*loc));
+    *loc = value;
+}
+
 void print_program(Program p)
 {
+    size_t op_i = 0;
     for (size_t i = 0; i < p.count; ++i) {
-        Inst op = p.items[i];
-        printf("%ld: Inst %s, value %f\n", i, inst_to_string(op), op.value);
+        Opcode op = p.items[i];
+
+        switch (op) {
+            case OP_PUSH: {
+                printf("%ld: PUSH ", op_i++);
+                double operand = 0.0;
+
+                if (i + sizeof(operand) >= p.count)
+                    continue;
+
+                ++i;
+                operand = *(double*)&p.items[i];
+                i += sizeof(operand) - 1;
+
+                printf("%f\n", operand);
+            } break;
+
+            case OP_ADD: printf("%ld: ADD\n", op_i++); break;
+            case OP_SUB: printf("%ld: SUB\n", op_i++); break;
+            case OP_MUL: printf("%ld: MUL\n", op_i++); break;
+            case OP_DIV: printf("%ld: DIV\n", op_i++); break;
+            case OP_NEG: printf("%ld: NEG\n", op_i++); break;
+
+            default: {
+                printf("%ld: ?\n", op_i++);
+            } break;
+        }
     }
 }
 
@@ -117,18 +118,26 @@ void stack_push(Stack *stack, double n)
     da_append(stack, n);
 }
 
-double stack_pop(Stack *stack)
+Optional stack_pop(Stack *stack)
 {
-    // TODO: Check if stack is empty
-    double r = stack->items[stack->count - 1];
-    stack->count--;
-    return r;
+    Optional result = stack_peek(stack);
+    if (result.present) {
+        stack->count--;
+    }
+
+    return result;
 }
 
-double stack_peek(Stack *stack)
+Optional stack_peek(Stack *stack)
 {
-    assert(stack->items != NULL);
-    return stack->items[stack->count - 1];
+    Optional result = {0};
+    if (stack->count == 0) {
+        return result;
+    }
+
+    result.present = true;
+    result.value = stack->items[stack->count - 1];
+    return result;
 }
 
 Vm vm_init(Program program)
@@ -140,70 +149,73 @@ Vm vm_init(Program program)
 
 bool vm_run(Vm *vm)
 {
+#define ASSERT_PRESENT(o) if (!(o).present) return false
+
     Stack *stack = &vm->stack;
     Program *program = &vm->program;
 
     while (vm->ip < program->count) {
-        Inst *inst = &program->items[vm->ip];
+        Opcode op = program->items[vm->ip];
 
-        switch (inst->type) {
-            case INST_INVALID: {
-                // TODO: Handle invalid opcode. Skipping for now
+        switch (op) {
+            case OP_PUSH: {
+                ++vm->ip;
+                double operand = *(double*)&program->items[vm->ip];
+                stack_push(stack, operand);
+                vm->ip += sizeof(operand);
             } break;
 
-            case INST_PUSH: {
-                stack_push(stack, inst->value);
+            case OP_ADD: {
+                Optional b = stack_pop(stack); ASSERT_PRESENT(b);
+                Optional a = stack_pop(stack); ASSERT_PRESENT(a);
+                stack_push(stack, a.value + b.value);
+                ++vm->ip;
             } break;
 
-            case INST_ADD: {
-                double b = stack_pop(stack);
-                double a = stack_pop(stack);
-                stack_push(stack, a + b);
+            case OP_SUB: {
+                Optional b = stack_pop(stack); ASSERT_PRESENT(b);
+                Optional a = stack_pop(stack); ASSERT_PRESENT(a);
+                stack_push(stack, a.value - b.value);
+                ++vm->ip;
             } break;
 
-            case INST_SUB: {
-                double b = stack_pop(stack);
-                double a = stack_pop(stack);
-                stack_push(stack, a - b);
+            case OP_MUL: {
+                Optional b = stack_pop(stack); ASSERT_PRESENT(b);
+                Optional a = stack_pop(stack); ASSERT_PRESENT(a);
+                stack_push(stack, a.value * b.value);
+                ++vm->ip;
             } break;
 
-            case INST_MUL: {
-                double b = stack_pop(stack);
-                double a = stack_pop(stack);
-                stack_push(stack, a * b);
+            case OP_DIV: {
+                Optional b = stack_pop(stack); ASSERT_PRESENT(b);
+                Optional a = stack_pop(stack); ASSERT_PRESENT(a);
+                stack_push(stack, a.value / b.value);
+                ++vm->ip;
             } break;
 
-            case INST_DIV: {
-                double b = stack_pop(stack);
-                double a = stack_pop(stack);
-                stack_push(stack, a / b);
-            } break;
-
-            case INST_NEG: {
-                double n = stack_pop(stack);
-                stack_push(stack, -n);
+            case OP_NEG: {
+                Optional n = stack_pop(stack); ASSERT_PRESENT(n);
+                stack_push(stack, -n.value);
+                ++vm->ip;
             } break;
 
             default: {
-                // TODO: Handle unknown opcode. Skipping for now
+                return false;
             } break;
         }
-
-        vm->ip++;
     }
 
     return true;
+
+#undef ASSERT_PRESENT
 }
 
-double vm_result(const Vm *vm)
+double vm_result(Vm *vm)
 {
-    // TODO: Handle empty stack correctly
-    assert(vm->stack.count == 1);
-    return vm->stack.items[0];
+    return stack_peek(&vm->stack).value;
 }
 
 void vm_free(Vm *vm)
 {
-    da_free(&vm->program);
     da_free(&vm->stack);
 }

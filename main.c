@@ -18,6 +18,8 @@ int main(void)
     bool compile = false;
 
     while (!quit) {
+        /* Input */
+
         printf("> ");
         if (fgets(input, sizeof(input), stdin) == NULL) {
             goto cleanup;
@@ -51,6 +53,8 @@ int main(void)
             continue;
         }
 
+        /* Tokenize and parse input */
+
         Result tr = tokenize(&token_list, input);
         if (tr.error) {
             printf("  %*s^\n", (int)tr.error_position, "");
@@ -75,6 +79,8 @@ int main(void)
             print_parse_tree(parse_tree);
         }
 
+        /* Interpret or compile input */
+
         double result = 0.0;
 
         if (compile) {
@@ -86,9 +92,15 @@ int main(void)
             }
 
             Vm vm = vm_init(program);
-            vm_run(&vm);
+
+            if (!vm_run(&vm)) {
+                printf("ERROR: Error while executing VM program\n");
+                vm_free(&vm);
+                da_free(&program);
+                goto reset;
+            }
+
             result = vm_result(&vm);
-            vm_free(&vm);
         } else {
             Result r = interpret(parse_tree);
             if (r.error) {

@@ -250,7 +250,6 @@ Tree_Node *parse_factor(Arena *a, Parser *parser, Result *result)
             result->error = true;
             result->error_type = ERROR_INVALID_EXPRESSION;
             result->error_position = cur->position;
-            result->expected_token = TOKEN_RPAREN;
             return result_node;
         }
 
