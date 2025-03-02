@@ -172,6 +172,12 @@ Vm vm_init(Program program)
     return vm;
 }
 
+void vm_var(Vm *vm, char var, double value)
+{
+    assert('a' <= var && var <= 'z');
+    vm->vars[var - 'a'] = value;
+}
+
 bool vm_run(Vm *vm)
 {
 #define ASSERT_PRESENT(o) if (!(o).present) return false

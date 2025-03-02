@@ -55,7 +55,8 @@ Optional stack_pop(Stack *stack);
 Optional stack_peek(Stack *stack);
 
 Vm vm_init(Program program);
-bool vm_run(Vm *vm); // TODO: Detailed errors
+void vm_var(Vm *vm, char var, double value);
+bool vm_run(Vm *vm);
 double vm_result(Vm *vm);
 void vm_free(Vm *vm);
 
