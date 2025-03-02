@@ -101,7 +101,7 @@ int main(void)
         if (debug)
             printf("=============\n\n");
 
-        printf("%f\n", result);
+        printf("%.10g\n", result);
 reset:
         arena_reset(&arena);
         da_reset(&token_list);
