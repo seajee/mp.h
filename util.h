@@ -32,4 +32,6 @@
 
 #define UNREACHABLE() do { assert(0 && "UNREACHABLE"); } while (0)
 
+#define TODO() do { assert(0 && "TODO"); } while (0)
+
 #endif // UTIL_H_
