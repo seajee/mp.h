@@ -163,6 +163,7 @@ Result tokenize(Token_List *list, const char *expr)
         token.position = cursor;
 
         switch (c) {
+            case '\n':
             case '\t':
             case ' ': {
                 ++cursor;
