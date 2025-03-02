@@ -34,7 +34,7 @@ typedef struct {
 typedef struct {
     Program program;
     Stack stack;
-    char vars[26]; // a - z
+    double vars[26]; // a - z
     size_t ip;
 } Vm;
 
