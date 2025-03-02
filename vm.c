@@ -153,6 +153,7 @@ bool vm_run(Vm *vm)
 
     Stack *stack = &vm->stack;
     Program *program = &vm->program;
+    vm->ip = 0;
 
     while (vm->ip < program->count) {
         Opcode op = program->items[vm->ip];
