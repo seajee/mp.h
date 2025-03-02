@@ -229,6 +229,7 @@ Tree_Node *parse_term(Arena *a, Parser *parser, Result *result)
             result_node = make_node_binop(a, NODE_MULTIPLY, result_node,
                                           parse_factor(a, parser, result));
         } else if (cur->type == TOKEN_DIVIDE) {
+            parser_advance(parser);
             result_node = make_node_binop(a, NODE_DIVIDE, result_node,
                                           parse_factor(a, parser, result));
         }
