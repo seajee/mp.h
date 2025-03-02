@@ -84,7 +84,12 @@ int main(void)
         double result = 0.0;
 
         if (compile) {
-            Program program = program_compile(parse_tree);
+            Program program = {0};
+            if (!program_compile(&program, parse_tree)) {
+                printf("ERROR: Could not compile program\n");
+                da_free(&program);
+                goto reset;
+            }
 
             if (debug) {
                 printf("\nVM Program:\n");

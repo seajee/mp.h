@@ -1,3 +1,5 @@
+// TODO: Give more detailed errors
+
 #include "vm.h"
 
 #include <assert.h>
@@ -5,11 +7,9 @@
 
 #include "util.h"
 
-Program program_compile(Parse_Tree parse_tree)
+bool program_compile(Program *p, Parse_Tree parse_tree)
 {
-    Program program = {0};
-    program_compile_node(&program, parse_tree.root);
-    return program;
+    return program_compile_node(p, parse_tree.root);
 }
 
 bool program_compile_node(Program *p, Tree_Node *node)
