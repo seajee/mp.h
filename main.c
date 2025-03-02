@@ -4,6 +4,7 @@
 
 #include "interpreter.h"
 #include "util.h"
+#include "vm.h"
 
 int main(void)
 {
@@ -14,6 +15,7 @@ int main(void)
     bool quit = false;
     char input[512];
     bool debug = false;
+    bool compile = false;
 
     while (!quit) {
         printf("> ");
@@ -32,6 +34,14 @@ int main(void)
                 printf("off\n");
 
             continue;
+        } else if (strcmp(input, "compile\n") == 0) {
+            compile = !compile;
+            if (compile)
+                printf("on\n");
+            else
+                printf("off\n");
+
+            continue;
         }
 
         Result tr = tokenize(&token_list, input);
@@ -40,10 +50,6 @@ int main(void)
             printf("%ld: ERROR: %s\n", tr.error_position + 1,
                    error_to_string(tr.error_type));
             goto reset;
-        }
-
-        if (debug) {
-            print_token_list(token_list);
         }
 
         Result pr = parse(&arena, &parse_tree, token_list);
@@ -55,16 +61,40 @@ int main(void)
         }
 
         if (debug) {
+            printf("\n=== DEBUG ===\n");
+            printf("Token list:\n");
+            print_token_list(token_list);
+            printf("\nParse tree:\n");
             print_parse_tree(parse_tree);
         }
 
-        Result r = interpret(parse_tree);
-        if (r.error) {
-            printf("ERROR: %s\n", error_to_string(r.error_type));
-            goto reset;
+        double result = 0.0;
+
+        if (compile) {
+            Program program = program_compile(parse_tree);
+
+            if (debug) {
+                printf("\nVM Program:\n");
+                print_program(program);
+            }
+
+            Vm vm = vm_init(program);
+            vm_run(&vm);
+            result = vm_result(&vm);
+            vm_free(&vm);
+        } else {
+            Result r = interpret(parse_tree);
+            if (r.error) {
+                printf("ERROR: %s\n", error_to_string(r.error_type));
+                goto reset;
+            }
+            result = r.value;
         }
 
-        printf("%f\n", r.value);
+        if (debug)
+            printf("=============\n\n");
+
+        printf("%f\n", result);
 reset:
         arena_reset(&arena);
         da_reset(&token_list);
