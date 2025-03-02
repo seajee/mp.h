@@ -63,26 +63,36 @@ int main(void)
 
         /* Tokenize and parse input */
 
+        if (debug) {
+            printf("\n===== DEBUG =====\n");
+        }
+
         Result tr = tokenize(&token_list, input);
         if (tr.error) {
+            if (debug)
+                printf("=================\n\n");
             printf("  %*s^\n", (int)tr.error_position, "");
-            printf("%ld: ERROR: %s\n", tr.error_position + 1,
+            printf("%ld: ERROR: tokenizer: %s\n", tr.error_position + 1,
                    error_to_string(tr.error_type));
             goto reset;
         }
 
+        if (debug) {
+            printf("Token list:\n");
+            print_token_list(token_list);
+        }
+
         Result pr = parse(&arena, &parse_tree, token_list);
         if (pr.error) {
+            if (debug)
+                printf("=================\n\n");
             printf("  %*s^\n", (int)pr.error_position, "");
-            printf("%ld: ERROR: %s\n", pr.error_position + 1,
+            printf("%ld: ERROR: parser: %s\n", pr.error_position + 1,
                    error_to_string(pr.error_type));
             goto reset;
         }
 
         if (debug) {
-            printf("\n=== DEBUG ===\n");
-            printf("Token list:\n");
-            print_token_list(token_list);
             printf("\nParse tree:\n");
             print_parse_tree(parse_tree);
         }
@@ -94,6 +104,8 @@ int main(void)
         if (compile) {
             Program program = {0};
             if (!program_compile(&program, parse_tree)) {
+                if (debug)
+                    printf("=================\n\n");
                 printf("ERROR: Could not compile program\n");
                 da_free(&program);
                 goto reset;
@@ -107,6 +119,8 @@ int main(void)
             Vm vm = vm_init(program);
 
             if (!vm_run(&vm)) {
+                if (debug)
+                    printf("=================\n\n");
                 printf("ERROR: Error while executing VM program\n");
                 vm_free(&vm);
                 da_free(&program);
@@ -119,14 +133,16 @@ int main(void)
         } else {
             Result r = interpret(parse_tree);
             if (r.error) {
-                printf("ERROR: %s\n", error_to_string(r.error_type));
+                if (debug)
+                    printf("=================\n\n");
+                printf("ERROR: interpreter: %s\n", error_to_string(r.error_type));
                 goto reset;
             }
             result = r.value;
         }
 
         if (debug)
-            printf("=============\n\n");
+            printf("=================\n\n");
 
         printf("%.10g\n", result);
 reset:

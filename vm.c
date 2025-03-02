@@ -58,7 +58,7 @@ bool program_compile_node(Program *p, Tree_Node *node)
         } break;
 
         default: {
-            UNREACHABLE();
+            return false;
         } break;
     }
 

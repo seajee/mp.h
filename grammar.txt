@@ -2,6 +2,6 @@ expression = term | ( term ("+" | "-") term )
 
 term = factor | ( factor ( "*" | "/" ) factor )
 
-factor = ( "(" expression ")" ) | unary | NUMBER
+factor = ( "(" expression ")" ) | unary | NUMBER | SYMBOL
 
 unary = ( "+" | "-" ) factor

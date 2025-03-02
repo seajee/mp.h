@@ -64,6 +64,7 @@ Result tokenize(Token_List *list, const char *expr)
             } break;
 
             default: {
+                // Numbers
                 if (isdigit(c)) {
                     char *end;
                     token.type = TOKEN_NUMBER;
@@ -73,14 +74,24 @@ Result tokenize(Token_List *list, const char *expr)
                     break;
                 }
 
-                token.type = TOKEN_INVALID;
+                // Symbols
+                if (islower(c)) {
+                    if (cursor >= end - 1 || !islower(expr[cursor + 1])) {
+                        token.type = TOKEN_SYMBOL;
+                        token.symbol = c;
+                        da_append(list, token);
+                        ++cursor;
+                        break;
+                    }
+                }
 
+                // Invalid
+                token.type = TOKEN_INVALID;
                 result.error = true;
                 result.error_type = ERROR_INVALID_TOKEN;
                 result.error_position = cursor;
                 result.faulty_token = token;
                 return result;
-
             } break;
         }
     }
@@ -94,15 +105,14 @@ const char *token_to_string(Token token)
         case TOKEN_EOF:      return "TOKEN_EOF";
         case TOKEN_INVALID:  return "TOKEN_INVALID";
         case TOKEN_NUMBER:   return "TOKEN_NUMBER";
+        case TOKEN_SYMBOL:   return "TOKEN_SYMBOL";
         case TOKEN_PLUS:     return "TOKEN_PLUS";
         case TOKEN_MINUS:    return "TOKEN_MINUS";
         case TOKEN_MULTIPLY: return "TOKEN_MULTIPLY";
         case TOKEN_DIVIDE:   return "TOKEN_DIVIDE";
         case TOKEN_LPAREN:   return "TOKEN_LPAREN";
         case TOKEN_RPAREN:   return "TOKEN_RPAREN";
-        default: {
-            UNREACHABLE();
-        } break;
+        default:             return "?";
     }
 }
 
@@ -110,9 +120,11 @@ void print_token_list(Token_List list)
 {
     for (size_t i = 0; i < list.count; ++i) {
         Token token = list.items[i];
-        printf("Token %ld: type %s", i, token_to_string(token));
+        printf("%ld: %s", i, token_to_string(token));
         if (token.type == TOKEN_NUMBER) {
-            printf(", value %f", token.value);
+            printf(" %f", token.value);
+        } else if (token.type == TOKEN_SYMBOL) {
+            printf(" %c", token.symbol);
         }
         printf("\n");
     }
@@ -145,6 +157,14 @@ Tree_Node *make_node_unary(Arena *a, Node_Type t, Tree_Node *node)
     Tree_Node *r = arena_alloc(a, sizeof(*r));
     r->type = t;
     r->unary.node = node;
+    return r;
+}
+
+Tree_Node *make_node_symbol(Arena *a, char symbol)
+{
+    Tree_Node *r = arena_alloc(a, sizeof(*r));
+    r->type = NODE_SYMBOL;
+    r->symbol = symbol;
     return r;
 }
 
@@ -263,6 +283,12 @@ Tree_Node *parse_factor(Arena *a, Parser *parser, Result *result)
         return number;
     }
 
+    if (cur->type == TOKEN_SYMBOL) {
+        Tree_Node *symbol = make_node_symbol(a, cur->symbol);
+        parser_advance(parser);
+        return symbol;
+    }
+
     if (cur->type == TOKEN_PLUS) {
         parser_advance(parser);
         return make_node_unary(a, NODE_PLUS, parse_factor(a, parser, result));
@@ -299,6 +325,10 @@ void print_tree_node(Tree_Node *root)
 
         case NODE_NUMBER: {
             printf("%f", root->value);
+        } break;
+
+        case NODE_SYMBOL: {
+            printf("%c", root->symbol);
         } break;
 
         case NODE_ADD: {

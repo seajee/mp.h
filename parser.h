@@ -10,6 +10,7 @@ typedef enum {
     TOKEN_INVALID,
     TOKEN_EOF,
     TOKEN_NUMBER,
+    TOKEN_SYMBOL,
     TOKEN_PLUS,
     TOKEN_MINUS,
     TOKEN_MULTIPLY,
@@ -22,7 +23,10 @@ typedef enum {
 typedef struct {
     Token_Type type;
     size_t position;
-    double value;
+    union {
+        double value;
+        char symbol;
+    };
 } Token;
 
 typedef struct {
@@ -54,6 +58,7 @@ const char *error_to_string(Error_Type err);
 typedef enum {
     NODE_INVALID,
     NODE_NUMBER,
+    NODE_SYMBOL,
     NODE_ADD,
     NODE_SUBTRACT,
     NODE_MULTIPLY,
@@ -78,7 +83,10 @@ struct Tree_Node {
             Tree_Node *node;
         } unary;
 
-        double value;
+        union {
+            double value;
+            char symbol;
+        };
     };
 };
 
@@ -101,6 +109,7 @@ const char *error_to_string(Error_Type err);
 
 Tree_Node *make_node_binop(Arena *a, Node_Type t, Tree_Node *lhs, Tree_Node *rhs);
 Tree_Node *make_node_unary(Arena *a, Node_Type t, Tree_Node *node);
+Tree_Node *make_node_symbol(Arena *a, char symbol);
 Tree_Node *make_node(Arena *a, Node_Type t, double value);
 
 Result parse(Arena *a, Parse_Tree *tree, Token_List list);

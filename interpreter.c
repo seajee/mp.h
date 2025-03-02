@@ -82,7 +82,9 @@ Result interpret_node(Tree_Node *root)
         } break;
 
         default: {
-            UNREACHABLE();
+            result.error = true;
+            result.error_type = ERROR_INVALID_NODE;
+            return result;
         } break;
     }
 
