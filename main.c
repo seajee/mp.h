@@ -23,7 +23,14 @@ int main(void)
             goto cleanup;
         }
 
-        if (strcmp(input, "exit\n") == 0) {
+        if (strcmp(input, "help\n") == 0) {
+            printf("Usage:\n");
+            printf("  help:     Show this text\n");
+            printf("  exit:     Quit the application\n");
+            printf("  debug:    Toggle debug information\n");
+            printf("  compile:  Toggle between interpreter and virtual machine\n");
+            continue;
+        } else if (strcmp(input, "exit\n") == 0) {
             quit = true;
             goto cleanup;
         } else if (strcmp(input, "debug\n") == 0) {
