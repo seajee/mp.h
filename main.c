@@ -6,16 +6,17 @@
 #include "util.h"
 #include "vm.h"
 
+#define INPUT_BUFFER_CAPACITY 512
+
 int main(void)
 {
+    bool quit = false;
+    char input[INPUT_BUFFER_CAPACITY];
+    bool debug = false;
+
     Arena arena = {0};
     Token_List token_list = {0};
     Parse_Tree parse_tree = {0};
-
-    bool quit = false;
-    char input[512];
-    bool debug = false;
-    bool compile = false;
 
     printf("Type `help` for more information\n");
 
@@ -23,7 +24,7 @@ int main(void)
         /* Input */
 
         printf("> ");
-        if (fgets(input, sizeof(input), stdin) == NULL) {
+        if (fgets(input, INPUT_BUFFER_CAPACITY, stdin) == NULL) {
             goto cleanup;
         }
 
@@ -35,7 +36,6 @@ int main(void)
             printf("    2 * (4.3 / 3.1) - 8\n");
             printf("\n");
             printf("Commands:\n");
-            printf("  compile:  Toggle between interpreter and virtual machine mode\n");
             printf("  debug:    Toggle debug information\n");
             printf("  exit:     Quit the application\n");
             printf("  help:     Show this text\n");
@@ -51,26 +51,12 @@ int main(void)
                 printf("off\n");
 
             continue;
-        } else if (strcmp(input, "compile\n") == 0) {
-            compile = !compile;
-            if (compile)
-                printf("on\n");
-            else
-                printf("off\n");
-
-            continue;
         }
 
         /* Tokenize and parse input */
 
-        if (debug) {
-            printf("\n===== DEBUG =====\n");
-        }
-
         Result tr = tokenize(&token_list, input);
         if (tr.error) {
-            if (debug)
-                printf("=================\n\n");
             printf("  %*s^\n", (int)tr.error_position, "");
             printf("%ld: ERROR: tokenizer: %s\n", tr.error_position + 1,
                    error_to_string(tr.error_type));
@@ -78,14 +64,13 @@ int main(void)
         }
 
         if (debug) {
-            printf("Token list:\n");
+            printf("\n===== Token_List =====\n");
             print_token_list(token_list);
+            printf("\n");
         }
 
         Result pr = parse(&arena, &parse_tree, token_list);
         if (pr.error) {
-            if (debug)
-                printf("=================\n\n");
             printf("  %*s^\n", (int)pr.error_position, "");
             printf("%ld: ERROR: parser: %s\n", pr.error_position + 1,
                    error_to_string(pr.error_type));
@@ -93,56 +78,40 @@ int main(void)
         }
 
         if (debug) {
-            printf("\nParse tree:\n");
+            printf("\n===== Parse_Tree =====\n");
             print_parse_tree(parse_tree);
+            printf("\n");
         }
 
-        /* Interpret or compile input */
+        /* Compile input down to Program and execute it */
 
         double result = 0.0;
 
-        if (compile) {
-            Program program = {0};
-            if (!program_compile(&program, parse_tree)) {
-                if (debug)
-                    printf("=================\n\n");
-                printf("ERROR: Could not compile program\n");
-                da_free(&program);
-                goto reset;
-            }
-
-            if (debug) {
-                printf("\nVM Program (%ld bytes):\n", program.count);
-                print_program(program);
-            }
-
-            Vm vm = vm_init(program);
-
-            if (!vm_run(&vm)) {
-                if (debug)
-                    printf("=================\n\n");
-                printf("ERROR: Error while executing VM program\n");
-                vm_free(&vm);
-                da_free(&program);
-                goto reset;
-            }
-
-            result = vm_result(&vm);
-            vm_free(&vm);
+        Program program = {0};
+        if (!program_compile(&program, parse_tree)) {
+            printf("ERROR: Could not compile program\n");
             da_free(&program);
-        } else {
-            Result r = interpret(parse_tree);
-            if (r.error) {
-                if (debug)
-                    printf("=================\n\n");
-                printf("ERROR: interpreter: %s\n", error_to_string(r.error_type));
-                goto reset;
-            }
-            result = r.value;
+            goto reset;
         }
 
-        if (debug)
-            printf("=================\n\n");
+        if (debug) {
+            printf("\n===== Program (%ld bytes) =====\n", program.count);
+            print_program(program);
+            printf("\n");
+        }
+
+        Vm vm = vm_init(program);
+
+        if (!vm_run(&vm)) {
+            printf("ERROR: Error while executing VM program\n");
+            vm_free(&vm);
+            da_free(&program);
+            goto reset;
+        }
+
+        result = vm_result(&vm);
+        vm_free(&vm);
+        da_free(&program);
 
         printf("%.10g\n", result);
 reset:
