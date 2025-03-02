@@ -17,6 +17,8 @@ int main(void)
     bool debug = false;
     bool compile = false;
 
+    printf("Type `help` for more information\n");
+
     while (!quit) {
         /* Input */
 
@@ -27,10 +29,16 @@ int main(void)
 
         if (strcmp(input, "help\n") == 0) {
             printf("Usage:\n");
-            printf("  help:     Show this text\n");
-            printf("  exit:     Quit the application\n");
+            printf("  Type an expression or a command to use the application\n");
+            printf("  Supported operations: + - * /\n");
+            printf("  Example:\n");
+            printf("    2 * (4.3 / 3.1) - 8\n");
+            printf("\n");
+            printf("Commands:\n");
+            printf("  compile:  Toggle between interpreter and virtual machine mode\n");
             printf("  debug:    Toggle debug information\n");
-            printf("  compile:  Toggle between interpreter and virtual machine\n");
+            printf("  exit:     Quit the application\n");
+            printf("  help:     Show this text\n");
             continue;
         } else if (strcmp(input, "exit\n") == 0) {
             quit = true;
@@ -92,7 +100,7 @@ int main(void)
             }
 
             if (debug) {
-                printf("\nVM Program:\n");
+                printf("\nVM Program (%ld bytes):\n", program.count);
                 print_program(program);
             }
 
@@ -106,6 +114,8 @@ int main(void)
             }
 
             result = vm_result(&vm);
+            vm_free(&vm);
+            da_free(&program);
         } else {
             Result r = interpret(parse_tree);
             if (r.error) {
