@@ -41,7 +41,6 @@ typedef struct {
     double value;
 } Optional;
 
-
 Program program_compile(Parse_Tree parse_tree); // TODO: Handle compilation errors
 bool program_compile_node(Program *p, Tree_Node *node); // TODO: Detailed errors
 void program_push_opcode(Program *p, Opcode op);
