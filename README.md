@@ -1,11 +1,11 @@
-# math
+# mp.h
 
-A math expression parser in C.
+A single header library for math expression parsing.
 
 ## Quick start
 
-To build and run the project run the following
+To build and run the examples provided run the following
 
 ```bash
-$ make && ./math
+$ make
 ```
