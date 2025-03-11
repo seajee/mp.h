@@ -1,4 +1,4 @@
-// mp.h - math parser
+// mp - v1.0.0 - MIT License - https://github.com/seajee/mp.h
 
 //----------------
 // Header section
@@ -268,6 +268,20 @@ void mp_vm_var(MP_Vm *vm, char var, double value);
 bool mp_vm_run(MP_Vm *vm);
 double mp_vm_result(MP_Vm *vm);
 void mp_vm_free(MP_Vm *vm);
+
+//-----------------------------------
+// Simplified API (uses compilation)
+//-----------------------------------
+
+typedef struct {
+    MP_Program program;
+    MP_Vm vm;
+} MP_Env;
+
+MP_Env *mp_init(const char *expression);
+void mp_variable(MP_Env *env, char var, double value);
+MP_Result mp_evaluate(MP_Env *env);
+void mp_free(MP_Env *env);
 
 #endif // MP_H_
 
@@ -1047,4 +1061,96 @@ void mp_vm_free(MP_Vm *vm)
     mp_da_free(&vm->stack);
 }
 
+//-----------------------------------
+// Simplified API (uses compilation)
+//-----------------------------------
+
+MP_Env *mp_init(const char *expression)
+{
+    MP_Env *env = malloc(sizeof(*env));
+    if (env == NULL) {
+        return NULL;
+    }
+
+    MP_Token_List token_list = {0};
+
+    MP_Result tr = mp_tokenize(&token_list, expression);
+    if (tr.error) {
+        mp_da_free(&token_list);
+        return NULL;
+    }
+
+    MP_Arena arena = {0};
+    MP_Parse_Tree parse_tree = {0};
+
+    MP_Result pr = mp_parse(&arena, &parse_tree, token_list);
+    if (pr.error) {
+        mp_da_free(&token_list);
+        mp_arena_free(&arena);
+        return NULL;
+    }
+
+    if (!mp_program_compile(&env->program, parse_tree)) {
+        mp_da_free(&token_list);
+        mp_arena_free(&arena);
+        mp_da_free(&env->program);
+        return NULL;
+    }
+
+    mp_da_free(&token_list);
+    mp_arena_free(&arena);
+
+    env->vm = mp_vm_init(env->program);
+
+    return env;
+}
+
+void mp_variable(MP_Env *env, char var, double value)
+{
+    mp_vm_var(&env->vm, var, value);
+}
+
+MP_Result mp_evaluate(MP_Env *env)
+{
+    MP_Result result = {0};
+
+    if (!mp_vm_run(&env->vm)) {
+        result.error = true;
+        return result;
+    }
+
+    result.value = mp_vm_result(&env->vm);
+    return result;
+}
+
+void mp_free(MP_Env *env)
+{
+    mp_da_free(&env->program);
+    mp_vm_free(&env->vm);
+}
+
 #endif // MP_IMPLEMENTATION
+
+/*
+ * MIT License
+ * 
+ * Copyright (c) 2025 seajee
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */

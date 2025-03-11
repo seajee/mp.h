@@ -2,16 +2,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "interpreter.h"
-#include "util.h"
-#include "vm.h"
+#define MP_IMPLEMENTATION
+#include "mp.h"
 
 #define INPUT_BUFFER_CAPACITY 512
 
-void vm_set_vars(Vm *vm, double vars[26])
+void vm_set_vars(MP_Vm *vm, double vars[26])
 {
     for (size_t i = 0; i < 26; ++i) {
-        vm_var(vm, i + 'a', vars[i]);
+        mp_vm_var(vm, i + 'a', vars[i]);
     }
 }
 
@@ -21,9 +20,9 @@ int main(void)
     char input[INPUT_BUFFER_CAPACITY];
     bool debug = false;
 
-    Arena arena = {0};
-    Token_List token_list = {0};
-    Parse_Tree parse_tree = {0};
+    MP_Arena arena = {0};
+    MP_Token_List token_list = {0};
+    MP_Parse_Tree parse_tree = {0};
     double vars[26];
 
     memset(vars, 0, sizeof(vars));
@@ -92,31 +91,31 @@ int main(void)
 
         /* Tokenize and parse input */
 
-        Result tr = tokenize(&token_list, input);
+        MP_Result tr = mp_tokenize(&token_list, input);
         if (tr.error) {
             printf("  %*s^\n", (int)tr.error_position, "");
             printf("%ld: ERROR: tokenizer: %s\n", tr.error_position + 1,
-                   error_to_string(tr.error_type));
+                   mp_error_to_string(tr.error_type));
             goto reset;
         }
 
         if (debug) {
             printf("\n===== Token_List =====\n");
-            print_token_list(token_list);
+            mp_print_token_list(token_list);
             printf("\n");
         }
 
-        Result pr = parse(&arena, &parse_tree, token_list);
+        MP_Result pr = mp_parse(&arena, &parse_tree, token_list);
         if (pr.error) {
             printf("  %*s^\n", (int)pr.error_position, "");
             printf("%ld: ERROR: parser: %s\n", pr.error_position + 1,
-                   error_to_string(pr.error_type));
+                   mp_error_to_string(pr.error_type));
             goto reset;
         }
 
         if (debug) {
             printf("\n===== Parse_Tree =====\n");
-            print_parse_tree(parse_tree);
+            mp_print_parse_tree(parse_tree);
             printf("\n");
         }
 
@@ -124,40 +123,40 @@ int main(void)
 
         double result = 0.0;
 
-        Program program = {0};
-        if (!program_compile(&program, parse_tree)) {
+        MP_Program program = {0};
+        if (!mp_program_compile(&program, parse_tree)) {
             printf("ERROR: Could not compile program\n");
-            da_free(&program);
+            mp_da_free(&program);
             goto reset;
         }
 
         if (debug) {
             printf("\n===== Program (%ld bytes) =====\n", program.count);
-            print_program(program);
+            mp_print_program(program);
             printf("\n");
         }
 
-        Vm vm = vm_init(program);
+        MP_Vm vm = mp_vm_init(program);
         vm_set_vars(&vm, vars);
-        if (!vm_run(&vm)) {
+        if (!mp_vm_run(&vm)) {
             printf("ERROR: Error while executing VM program\n");
-            vm_free(&vm);
-            da_free(&program);
+            mp_vm_free(&vm);
+            mp_da_free(&program);
             goto reset;
         }
-        result = vm_result(&vm);
+        result = mp_vm_result(&vm);
         printf("%.10g\n", result);
 
-        vm_free(&vm);
-        da_free(&program);
+        mp_vm_free(&vm);
+        mp_da_free(&program);
 reset:
-        arena_reset(&arena);
-        da_reset(&token_list);
+        mp_arena_reset(&arena);
+        mp_da_reset(&token_list);
     }
 
 cleanup:
-    da_free(&token_list);
-    arena_free(&arena);
+    mp_da_free(&token_list);
+    mp_arena_free(&arena);
 
     return EXIT_SUCCESS;
 }
