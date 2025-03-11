@@ -11,3 +11,8 @@ test: test.c
 
 example: examples/example.c
 	$(CC) $(CFLAGS) -I. -o example examples/example.c
+
+clean:
+	rm -rf math
+	rm -rf test
+	rm -rf example
