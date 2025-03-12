@@ -1,4 +1,4 @@
-// mp - v1.0.0 - MIT License - https://github.com/seajee/mp.h
+// mp - v1.0.1 - MIT License - https://github.com/seajee/mp.h
 
 //----------------
 // Header section
