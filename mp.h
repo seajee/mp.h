@@ -1071,6 +1071,7 @@ MP_Env *mp_init(const char *expression)
     if (env == NULL) {
         return NULL;
     }
+    memset(env, 0, sizeof(*env));
 
     MP_Token_List token_list = {0};
 
