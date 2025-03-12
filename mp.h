@@ -1133,6 +1133,13 @@ void mp_free(MP_Env *env)
 #endif // MP_IMPLEMENTATION
 
 /*
+    Revision history:
+
+        1.0.1 (2025-03-12) Fix inconsistency of MP_Env memory on initialization
+        1.0.0 (2025-03-12) Initial release
+*/
+
+/*
  * MIT License
  * 
  * Copyright (c) 2025 seajee
