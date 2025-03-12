@@ -1,4 +1,4 @@
-// mp - v1.0.1 - MIT License - https://github.com/seajee/mp.h
+// mp - v1.0.2 - MIT License - https://github.com/seajee/mp.h
 
 //----------------
 // Header section
@@ -15,12 +15,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-//----------------
-// Utility macros
-//----------------
-
-#define MP_UNREACHABLE() do { assert(0 && "UNREACHABLE"); } while (0)
 
 //----------------
 // Dynamic array
@@ -1135,6 +1129,7 @@ void mp_free(MP_Env *env)
 /*
     Revision history:
 
+        1.0.2 (2025-03-12) Remove unused macro
         1.0.1 (2025-03-12) Fix inconsistency of MP_Env memory on initialization
         1.0.0 (2025-03-12) Initial release
 */
