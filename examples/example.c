@@ -3,7 +3,7 @@
 
 int main(void)
 {
-    const char *expr = "x * (2 + x) / 2";
+    const char *expr = "x^(1/2) * (2 + x) / 2";
 
     MP_Env *parser = mp_init(expr);
     if (parser == NULL) {

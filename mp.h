@@ -1,4 +1,4 @@
-// mp - v1.0.2 - MIT License - https://github.com/seajee/mp.h
+// mp - v1.1.0 - MIT License - https://github.com/seajee/mp.h
 
 //----------------
 // Header section
@@ -9,6 +9,7 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -79,6 +80,7 @@ typedef enum {
     MP_TOKEN_MINUS,
     MP_TOKEN_MULTIPLY,
     MP_TOKEN_DIVIDE,
+    MP_TOKEN_POWER,
     MP_TOKEN_LPAREN,
     MP_TOKEN_RPAREN,
     MP_TOKEN_COUNT
@@ -145,6 +147,7 @@ typedef enum {
     MP_NODE_SUBTRACT,
     MP_NODE_MULTIPLY,
     MP_NODE_DIVIDE,
+    MP_NODE_POWER,
     MP_NODE_PLUS,
     MP_NODE_MINUS,
     MP_NODE_COUNT
@@ -218,6 +221,7 @@ typedef enum {
     MP_OP_SUB,
     MP_OP_MUL,
     MP_OP_DIV,
+    MP_OP_POW,
     MP_OP_NEG,
     MP_OP_COUNT
 } MP_Opcode;
@@ -372,6 +376,12 @@ MP_Result mp_tokenize(MP_Token_List *list, const char *expr)
                 ++cursor;
             } break;
 
+            case '^': {
+                token.type = MP_TOKEN_POWER;
+                mp_da_append(list, token);
+                ++cursor;
+            } break;
+
             case '(': {
                 token.type = MP_TOKEN_LPAREN;
                 mp_da_append(list, token);
@@ -431,6 +441,7 @@ const char *mp_token_to_string(MP_Token token)
         case MP_TOKEN_MINUS:    return "TOKEN_MINUS";
         case MP_TOKEN_MULTIPLY: return "TOKEN_MULTIPLY";
         case MP_TOKEN_DIVIDE:   return "TOKEN_DIVIDE";
+        case MP_TOKEN_POWER:    return "TOKEN_POWER";
         case MP_TOKEN_LPAREN:   return "TOKEN_LPAREN";
         case MP_TOKEN_RPAREN:   return "TOKEN_RPAREN";
         default:                return "?";
@@ -564,7 +575,8 @@ MP_Tree_Node *mp_parse_term(MP_Arena *a, MP_Parser *parser, MP_Result *result)
     MP_Token *cur = &parser->current;
 
     while (!result->error
-        && (cur->type == MP_TOKEN_MULTIPLY || cur->type == MP_TOKEN_DIVIDE)) {
+        && (cur->type == MP_TOKEN_MULTIPLY || cur->type == MP_TOKEN_DIVIDE
+            || cur->type == MP_TOKEN_POWER)) {
 
         if (cur->type == MP_TOKEN_MULTIPLY) {
             mp_parser_advance(parser);
@@ -573,6 +585,10 @@ MP_Tree_Node *mp_parse_term(MP_Arena *a, MP_Parser *parser, MP_Result *result)
         } else if (cur->type == MP_TOKEN_DIVIDE) {
             mp_parser_advance(parser);
             result_node = mp_make_node_binop(a, MP_NODE_DIVIDE, result_node,
+                                             mp_parse_factor(a, parser, result));
+        } else if (cur->type == MP_TOKEN_POWER) {
+            mp_parser_advance(parser);
+            result_node = mp_make_node_binop(a, MP_NODE_POWER, result_node,
                                              mp_parse_factor(a, parser, result));
         }
     }
@@ -687,6 +703,14 @@ void mp_print_tree_node(MP_Tree_Node *root)
             printf(")");
         } break;
 
+        case MP_NODE_POWER: {
+            printf("pow(");
+            mp_print_tree_node(root->binop.lhs);
+            printf(",");
+            mp_print_tree_node(root->binop.rhs);
+            printf(")");
+        } break;
+
         case MP_NODE_PLUS: {
             printf("plus(");
             mp_print_tree_node(root->unary.node);
@@ -780,6 +804,14 @@ MP_Result mp_interpret_node(MP_Tree_Node *root)
             result.value = a.value / b.value;
         } break;
 
+        case MP_NODE_POWER: {
+            MP_Result b = mp_interpret_node(root->binop.rhs);
+            if (b.error) return b;
+            MP_Result a = mp_interpret_node(root->binop.lhs);
+            if (a.error) return a;
+            result.value = pow(a.value, b.value);
+        } break;
+
         case MP_NODE_PLUS: {
             result = mp_interpret_node(root->unary.node);
         } break;
@@ -848,6 +880,12 @@ bool mp_program_compile_node(MP_Program *p, MP_Tree_Node *node)
             if (!mp_program_compile_node(p, node->binop.lhs)) return false;
             if (!mp_program_compile_node(p, node->binop.rhs)) return false;
             mp_program_push_opcode(p, MP_OP_DIV);
+        } break;
+
+        case MP_NODE_POWER: {
+            if (!mp_program_compile_node(p, node->binop.lhs)) return false;
+            if (!mp_program_compile_node(p, node->binop.rhs)) return false;
+            mp_program_push_opcode(p, MP_OP_POW);
         } break;
 
         case MP_NODE_PLUS: {
@@ -925,6 +963,7 @@ void mp_print_program(MP_Program p)
             case MP_OP_SUB: printf("%ld: SUB\n", ip++); break;
             case MP_OP_MUL: printf("%ld: MUL\n", ip++); break;
             case MP_OP_DIV: printf("%ld: DIV\n", ip++); break;
+            case MP_OP_POW: printf("%ld: POW\n", ip++); break;
             case MP_OP_NEG: printf("%ld: NEG\n", ip++); break;
 
             default: {
@@ -1025,6 +1064,13 @@ bool mp_vm_run(MP_Vm *vm)
                 MP_Optional b = mp_stack_pop(stack); ASSERT_PRESENT(b);
                 MP_Optional a = mp_stack_pop(stack); ASSERT_PRESENT(a);
                 mp_stack_push(stack, a.value / b.value);
+                ++vm->ip;
+            } break;
+
+            case MP_OP_POW: {
+                MP_Optional b = mp_stack_pop(stack); ASSERT_PRESENT(b);
+                MP_Optional a = mp_stack_pop(stack); ASSERT_PRESENT(a);
+                mp_stack_push(stack, pow(a.value, b.value));
                 ++vm->ip;
             } break;
 
@@ -1129,6 +1175,7 @@ void mp_free(MP_Env *env)
 /*
     Revision history:
 
+        1.1.0 (2025-03-12) Implement exponentiation
         1.0.2 (2025-03-12) Remove unused macro
         1.0.1 (2025-03-12) Fix inconsistency of MP_Env memory on initialization
         1.0.0 (2025-03-12) Initial release

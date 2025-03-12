@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -Wextra -ggdb
+CFLAGS=-Wall -Wextra -ggdb -lm
 
 all: math test example
 
