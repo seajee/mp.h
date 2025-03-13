@@ -40,7 +40,7 @@ int main(void)
         if (strcmp(input, "help\n") == 0) {
             printf("Usage:\n");
             printf("  Type an expression or a command to use the application.\n");
-            printf("  Supported operations: (+) (-) (*) (/)\n");
+            printf("  Supported operations: (+) (-) (*) (/) (^)\n");
             printf("  Example: 2 * (4.3 / 3.1) - 8\n");
             printf("\n");
             printf("Commands:\n");
