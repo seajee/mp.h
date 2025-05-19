@@ -1,4 +1,4 @@
-// mp - v1.1.0 - MIT License - https://github.com/seajee/mp.h
+// mp - v1.1.1 - MIT License - https://github.com/seajee/mp.h
 
 //----------------
 // Header section
@@ -1107,6 +1107,10 @@ void mp_vm_free(MP_Vm *vm)
 
 MP_Env *mp_init(const char *expression)
 {
+    if (expression == NULL) {
+        return NULL;
+    }
+
     MP_Env *env = malloc(sizeof(*env));
     if (env == NULL) {
         return NULL;
@@ -1175,6 +1179,7 @@ void mp_free(MP_Env *env)
 /*
     Revision history:
 
+        1.1.1 (2025-05-19) Check if input expression is NULL in mp_init
         1.1.0 (2025-03-12) Implement exponentiation
         1.0.2 (2025-03-12) Remove unused macro
         1.0.1 (2025-03-12) Fix inconsistency of MP_Env memory on initialization
