@@ -1,4 +1,4 @@
-// mp - v1.1.1 - MIT License - https://github.com/seajee/mp.h
+// mp - v1.1.2 - MIT License - https://github.com/seajee/mp.h
 
 //----------------
 // Header section
@@ -1170,6 +1170,9 @@ MP_Result mp_evaluate(MP_Env *env)
 
 void mp_free(MP_Env *env)
 {
+    if (env == NULL)
+        return;
+
     mp_da_free(&env->program);
     mp_vm_free(&env->vm);
 }
@@ -1179,6 +1182,7 @@ void mp_free(MP_Env *env)
 /*
     Revision history:
 
+        1.1.2 (2025-05-19) Check if input MP_Env is NULL in mp_free
         1.1.1 (2025-05-19) Check if input expression is NULL in mp_init
         1.1.0 (2025-03-12) Implement exponentiation
         1.0.2 (2025-03-12) Remove unused macro
