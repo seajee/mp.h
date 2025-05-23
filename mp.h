@@ -583,8 +583,7 @@ MP_Tree_Node *mp_parse_term(MP_Arena *a, MP_Parser *parser, MP_Result *result)
     MP_Token *cur = &parser->current;
 
     while (!result->error
-        && (cur->type == MP_TOKEN_MULTIPLY || cur->type == MP_TOKEN_DIVIDE
-            || cur->type == MP_TOKEN_POWER)) {
+        && (cur->type == MP_TOKEN_MULTIPLY || cur->type == MP_TOKEN_DIVIDE)) {
 
         if (cur->type == MP_TOKEN_MULTIPLY) {
             mp_parser_advance(parser);
