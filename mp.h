@@ -1,4 +1,4 @@
-// mp - v1.1.3 - MIT License - https://github.com/seajee/mp.h
+// mp - v1.1.4 - MIT License - https://github.com/seajee/mp.h
 
 //----------------
 // Header section
@@ -16,6 +16,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+//------------------------
+// Mathematical constants
+//------------------------
+
+#define MP_PI 3.14159265358979323846 // pi
+#define MP_E  2.7182818284590452354  // e
 
 //----------------
 // Dynamic array
@@ -1159,6 +1166,9 @@ MP_Env *mp_init(const char *expression)
 
     env->vm = mp_vm_init(env->program);
 
+    mp_variable(env, 'p', MP_PI);
+    mp_variable(env, 'e', MP_E);
+
     return env;
 }
 
@@ -1194,6 +1204,7 @@ void mp_free(MP_Env *env)
 /*
     Revision history:
 
+        1.1.4 (2025-05-23) Set mathematical in mp_init such as PI and E
         1.1.3 (2025-05-23) Fix operator precedence for exponentiation
         1.1.2 (2025-05-19) Check if input MP_Env is NULL in mp_free
         1.1.1 (2025-05-19) Check if input expression is NULL in mp_init

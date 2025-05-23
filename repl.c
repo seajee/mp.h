@@ -12,6 +12,9 @@ void vm_set_vars(MP_Vm *vm, double vars[26])
     for (size_t i = 0; i < 26; ++i) {
         mp_vm_var(vm, i + 'a', vars[i]);
     }
+
+    mp_vm_var(vm, 'p', MP_PI);
+    mp_vm_var(vm, 'e', MP_E);
 }
 
 int main(void)
