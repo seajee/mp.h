@@ -1,7 +1,9 @@
 expression = term | ( term ("+" | "-") term )
 
-term = factor | ( factor ( "*" | "/" | "^" ) factor )
+term = factor | ( factor ( "*" | "/" ) factor )
 
-factor = ( "(" expression ")" ) | unary | NUMBER | SYMBOL
+factor = primary | primary "^" primary
+
+primary = unary | NUMBER | SYMBOL | ( "(" expression ")" )
 
 unary = ( "+" | "-" ) factor

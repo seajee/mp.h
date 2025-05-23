@@ -1,4 +1,4 @@
-// mp - v1.1.2 - MIT License - https://github.com/seajee/mp.h
+// mp - v1.1.3 - MIT License - https://github.com/seajee/mp.h
 
 //----------------
 // Header section
@@ -197,6 +197,7 @@ void mp_parser_advance(MP_Parser *parser);
 MP_Tree_Node *mp_parse_expr(MP_Arena *a, MP_Parser *parser, MP_Result *result);
 MP_Tree_Node *mp_parse_term(MP_Arena *a, MP_Parser *parser, MP_Result *result);
 MP_Tree_Node *mp_parse_factor(MP_Arena *a, MP_Parser *parser, MP_Result *result);
+MP_Tree_Node *mp_parse_primary(MP_Arena *a, MP_Parser *parser, MP_Result *result);
 void mp_print_parse_tree(MP_Parse_Tree tree);
 void mp_print_tree_node(MP_Tree_Node *root);
 
@@ -586,10 +587,6 @@ MP_Tree_Node *mp_parse_term(MP_Arena *a, MP_Parser *parser, MP_Result *result)
             mp_parser_advance(parser);
             result_node = mp_make_node_binop(a, MP_NODE_DIVIDE, result_node,
                                              mp_parse_factor(a, parser, result));
-        } else if (cur->type == MP_TOKEN_POWER) {
-            mp_parser_advance(parser);
-            result_node = mp_make_node_binop(a, MP_NODE_POWER, result_node,
-                                             mp_parse_factor(a, parser, result));
         }
     }
 
@@ -597,6 +594,20 @@ MP_Tree_Node *mp_parse_term(MP_Arena *a, MP_Parser *parser, MP_Result *result)
 }
 
 MP_Tree_Node *mp_parse_factor(MP_Arena *a, MP_Parser *parser, MP_Result *result)
+{
+    MP_Tree_Node *result_node = mp_parse_primary(a, parser, result);
+    MP_Token *cur = &parser->current;
+
+    if (cur->type == MP_TOKEN_POWER) {
+        mp_parser_advance(parser);
+        result_node = mp_make_node_binop(a, MP_NODE_POWER, result_node,
+                                         mp_parse_primary(a, parser, result));
+    }
+
+    return result_node;
+}
+
+MP_Tree_Node *mp_parse_primary(MP_Arena *a, MP_Parser *parser, MP_Result *result)
 {
     MP_Token *cur = &parser->current;
 
@@ -645,6 +656,7 @@ MP_Tree_Node *mp_parse_factor(MP_Arena *a, MP_Parser *parser, MP_Result *result)
     result->faulty_token = *cur;
 
     return NULL;
+
 }
 
 void mp_print_parse_tree(MP_Parse_Tree tree)
@@ -1182,6 +1194,7 @@ void mp_free(MP_Env *env)
 /*
     Revision history:
 
+        1.1.3 (2025-05-23) Fix operator precedence for exponentiation
         1.1.2 (2025-05-19) Check if input MP_Env is NULL in mp_free
         1.1.1 (2025-05-19) Check if input expression is NULL in mp_init
         1.1.0 (2025-03-12) Implement exponentiation
