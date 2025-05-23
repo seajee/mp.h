@@ -19,3 +19,4 @@ clean:
 	rm -rf math
 	rm -rf test
 	rm -rf example
+	rm -rf benchmark
