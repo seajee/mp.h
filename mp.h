@@ -1119,9 +1119,9 @@ void mp_vm_free(MP_Vm *vm)
     mp_da_free(&vm->stack);
 }
 
-//-----------------------------------
-// Simplified API (uses compilation)
-//-----------------------------------
+//----------------
+// Simplified API
+//----------------
 
 MP_Env *mp_init(const char *expression)
 {
@@ -1203,7 +1203,7 @@ void mp_free(MP_Env *env)
 /*
     Revision history:
 
-        1.1.4 (2025-05-23) Set mathematical in mp_init such as PI and E
+        1.1.4 (2025-05-23) Set mathematical constants in mp_init such as PI and E
         1.1.3 (2025-05-23) Fix operator precedence for exponentiation
         1.1.2 (2025-05-19) Check if input MP_Env is NULL in mp_free
         1.1.1 (2025-05-19) Check if input expression is NULL in mp_init
