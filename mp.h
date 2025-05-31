@@ -1,4 +1,6 @@
-// mp - v1.1.4 - MIT License - https://github.com/seajee/mp.h
+// mp - v1.2.0 - MIT License - https://github.com/seajee/mp.h
+
+// TODO: Include documentation on how to use the library
 
 //----------------
 // Header section
@@ -212,10 +214,18 @@ void mp_print_tree_node(MP_Tree_Node *root);
 // Interpreter
 //-------------
 
-// TODO: Interpreter does not support variables
+typedef struct {
+    MP_Parse_Tree tree;
+    MP_Arena arena;
+    double vars[26]; // a - z
+} MP_Interpreter;
 
-MP_Result mp_interpret(MP_Parse_Tree tree);
-MP_Result mp_interpret_node(MP_Tree_Node *root);
+MP_Result mp_interpret(MP_Interpreter *interpreter);
+MP_Result mp_interpret_node(MP_Interpreter *interpreter, MP_Tree_Node *root);
+
+MP_Interpreter mp_interpreter_init(MP_Parse_Tree tree, MP_Arena arena);
+void mp_interpreter_var(MP_Interpreter *interpreter, char var, double value);
+void mp_interpreter_free(MP_Interpreter *interpreter);
 
 //----------
 // Compiler
@@ -275,16 +285,25 @@ bool mp_vm_run(MP_Vm *vm);
 double mp_vm_result(MP_Vm *vm);
 void mp_vm_free(MP_Vm *vm);
 
-//-----------------------------------
-// Simplified API (uses compilation)
-//-----------------------------------
+//----------------
+// Simplified API
+//----------------
+
+typedef enum {
+    MP_MODE_INTERPRET,
+    MP_MODE_COMPILE,
+} MP_Mode;
 
 typedef struct {
-    MP_Program program;
-    MP_Vm vm;
+    MP_Mode mode;
+    union {
+        MP_Interpreter interpreter;
+        MP_Vm vm;
+    };
 } MP_Env;
 
 MP_Env *mp_init(const char *expression);
+MP_Env *mp_init_mode(const char *expression, MP_Mode mode);
 void mp_variable(MP_Env *env, char var, double value);
 MP_Result mp_evaluate(MP_Env *env);
 void mp_free(MP_Env *env);
@@ -328,13 +347,21 @@ void *mp_arena_alloc(MP_Arena *arena, size_t size)
 
 void mp_arena_free(MP_Arena *arena)
 {
+    if (arena == NULL)
+        return;
+
     arena->count = 0;
     arena->capacity = 0;
+
     free(arena->data);
+    arena->data = NULL;
 }
 
 void mp_arena_reset(MP_Arena *arena)
 {
+    if (arena == NULL)
+        return;
+
     arena->count = 0;
 }
 
@@ -751,19 +778,24 @@ void mp_print_tree_node(MP_Tree_Node *root)
 // Interpreter
 //-------------
 
-MP_Result mp_interpret(MP_Parse_Tree tree)
+MP_Result mp_interpret(MP_Interpreter *interpreter)
 {
-    if (tree.root == NULL) {
-        MP_Result r = {0};
+    MP_Result r = {0};
+    if (interpreter == NULL) {
+        r.error = true;
+        return r;
+    }
+
+    if (interpreter->tree.root == NULL) {
         r.error = true;
         r.error_type = MP_ERROR_EMPTY_EXPRESSION;
         return r;
     }
 
-    return mp_interpret_node(tree.root);
+    return mp_interpret_node(interpreter, interpreter->tree.root);
 }
 
-MP_Result mp_interpret_node(MP_Tree_Node *root)
+MP_Result mp_interpret_node(MP_Interpreter *interpreter, MP_Tree_Node *root)
 {
     MP_Result result = {0};
 
@@ -784,32 +816,38 @@ MP_Result mp_interpret_node(MP_Tree_Node *root)
             result.value = root->value;
         } break;
 
+        case MP_NODE_SYMBOL: {
+            assert('a' <= root->symbol && root->symbol <= 'z');
+            result.value = interpreter->vars[root->symbol - 'a'];
+            return result;
+        } break;
+
         case MP_NODE_ADD: {
-            MP_Result a = mp_interpret_node(root->binop.lhs);
+            MP_Result a = mp_interpret_node(interpreter, root->binop.lhs);
             if (a.error) return a;
-            MP_Result b = mp_interpret_node(root->binop.rhs);
+            MP_Result b = mp_interpret_node(interpreter, root->binop.rhs);
             if (b.error) return b;
             result.value = a.value + b.value;
         } break;
 
         case MP_NODE_SUBTRACT: {
-            MP_Result a = mp_interpret_node(root->binop.lhs);
+            MP_Result a = mp_interpret_node(interpreter, root->binop.lhs);
             if (a.error) return a;
-            MP_Result b = mp_interpret_node(root->binop.rhs);
+            MP_Result b = mp_interpret_node(interpreter, root->binop.rhs);
             if (b.error) return b;
             result.value = a.value - b.value;
         } break;
 
         case MP_NODE_MULTIPLY: {
-            MP_Result a = mp_interpret_node(root->binop.lhs);
+            MP_Result a = mp_interpret_node(interpreter, root->binop.lhs);
             if (a.error) return a;
-            MP_Result b = mp_interpret_node(root->binop.rhs);
+            MP_Result b = mp_interpret_node(interpreter, root->binop.rhs);
             if (b.error) return b;
             result.value = a.value * b.value;
         } break;
 
         case MP_NODE_DIVIDE: {
-            MP_Result b = mp_interpret_node(root->binop.rhs);
+            MP_Result b = mp_interpret_node(interpreter, root->binop.rhs);
             if (b.error) return b;
             if (b.value == 0.0) {
                 result.error = true;
@@ -817,25 +855,25 @@ MP_Result mp_interpret_node(MP_Tree_Node *root)
                 return result;
             }
 
-            MP_Result a = mp_interpret_node(root->binop.lhs);
+            MP_Result a = mp_interpret_node(interpreter, root->binop.lhs);
             if (a.error) return a;
             result.value = a.value / b.value;
         } break;
 
         case MP_NODE_POWER: {
-            MP_Result b = mp_interpret_node(root->binop.rhs);
+            MP_Result b = mp_interpret_node(interpreter, root->binop.rhs);
             if (b.error) return b;
-            MP_Result a = mp_interpret_node(root->binop.lhs);
+            MP_Result a = mp_interpret_node(interpreter, root->binop.lhs);
             if (a.error) return a;
             result.value = pow(a.value, b.value);
         } break;
 
         case MP_NODE_PLUS: {
-            result = mp_interpret_node(root->unary.node);
+            result = mp_interpret_node(interpreter, root->unary.node);
         } break;
 
         case MP_NODE_MINUS: {
-            MP_Result n = mp_interpret_node(root->unary.node);
+            MP_Result n = mp_interpret_node(interpreter, root->unary.node);
             result.value = -n.value;
         } break;
 
@@ -849,12 +887,38 @@ MP_Result mp_interpret_node(MP_Tree_Node *root)
     return result;
 }
 
+MP_Interpreter mp_interpreter_init(MP_Parse_Tree tree, MP_Arena arena)
+{
+    MP_Interpreter intpr = {0};
+    intpr.tree = tree;
+    intpr.arena = arena;
+
+    return intpr;
+}
+
+void mp_interpreter_var(MP_Interpreter *interpreter, char var, double value)
+{
+    if (interpreter == NULL)
+        return;
+
+    assert('a' <= var && var <= 'z');
+    interpreter->vars[var - 'a'] = value;
+}
+
+void mp_interpreter_free(MP_Interpreter *interpreter)
+{
+    mp_arena_free(&interpreter->arena);
+}
+
 //----------
 // Compiler
 //----------
 
 bool mp_program_compile(MP_Program *p, MP_Parse_Tree parse_tree)
 {
+    if (p == NULL)
+        return false;
+
     return mp_program_compile_node(p, parse_tree.root);
 }
 
@@ -925,11 +989,17 @@ bool mp_program_compile_node(MP_Program *p, MP_Tree_Node *node)
 
 void mp_program_push_opcode(MP_Program *p, MP_Opcode op)
 {
+    if (p == NULL)
+        return;
+
     mp_da_append(p, op);
 }
 
 void mp_program_push_const(MP_Program *p, double value)
 {
+    if (p == NULL)
+        return;
+
     for (size_t i = 0; i < sizeof(value); ++i) {
         mp_da_append(p, 0);
     }
@@ -939,6 +1009,9 @@ void mp_program_push_const(MP_Program *p, double value)
 
 void mp_program_push_var(MP_Program *p, char var)
 {
+    if (p == NULL)
+        return;
+
     mp_da_append(p, var);
 }
 
@@ -993,6 +1066,9 @@ void mp_print_program(MP_Program p)
 
 void mp_stack_push(MP_Stack *stack, double n)
 {
+    if (stack == NULL)
+        return;
+
     mp_da_append(stack, n);
 }
 
@@ -1009,7 +1085,7 @@ MP_Optional mp_stack_pop(MP_Stack *stack)
 MP_Optional mp_stack_peek(MP_Stack *stack)
 {
     MP_Optional result = {0};
-    if (stack->count == 0) {
+    if (stack == NULL || stack->count == 0) {
         return result;
     }
 
@@ -1027,6 +1103,9 @@ MP_Vm mp_vm_init(MP_Program program)
 
 void mp_vm_var(MP_Vm *vm, char var, double value)
 {
+    if (vm == NULL)
+        return;
+
     assert('a' <= var && var <= 'z');
     vm->vars[var - 'a'] = value;
 }
@@ -1034,6 +1113,9 @@ void mp_vm_var(MP_Vm *vm, char var, double value)
 bool mp_vm_run(MP_Vm *vm)
 {
 #define ASSERT_PRESENT(o) if (!(o).present) return false
+
+    if (vm == NULL)
+        return false;;
 
     MP_Stack *stack = &vm->stack;
     MP_Program *program = &vm->program;
@@ -1111,12 +1193,19 @@ bool mp_vm_run(MP_Vm *vm)
 
 double mp_vm_result(MP_Vm *vm)
 {
+    if (vm == NULL)
+        return 0.0;
+
     return mp_stack_peek(&vm->stack).value;
 }
 
 void mp_vm_free(MP_Vm *vm)
 {
+    if (vm == NULL)
+        return;
+
     mp_da_free(&vm->stack);
+    mp_da_free(&vm->program);
 }
 
 //----------------
@@ -1124,6 +1213,11 @@ void mp_vm_free(MP_Vm *vm)
 //----------------
 
 MP_Env *mp_init(const char *expression)
+{
+    return mp_init_mode(expression, MP_MODE_INTERPRET);
+}
+
+MP_Env *mp_init_mode(const char *expression, MP_Mode mode)
 {
     if (expression == NULL) {
         return NULL;
@@ -1135,10 +1229,13 @@ MP_Env *mp_init(const char *expression)
     }
     memset(env, 0, sizeof(*env));
 
+    env->mode = mode;
+
     MP_Token_List token_list = {0};
 
     MP_Result tr = mp_tokenize(&token_list, expression);
     if (tr.error) {
+        free(env);
         mp_da_free(&token_list);
         return NULL;
     }
@@ -1148,44 +1245,94 @@ MP_Env *mp_init(const char *expression)
 
     MP_Result pr = mp_parse(&arena, &parse_tree, token_list);
     if (pr.error) {
+        free(env);
         mp_da_free(&token_list);
         mp_arena_free(&arena);
-        return NULL;
-    }
-
-    if (!mp_program_compile(&env->program, parse_tree)) {
-        mp_da_free(&token_list);
-        mp_arena_free(&arena);
-        mp_da_free(&env->program);
         return NULL;
     }
 
     mp_da_free(&token_list);
-    mp_arena_free(&arena);
 
-    env->vm = mp_vm_init(env->program);
+    switch (env->mode) {
+        case MP_MODE_INTERPRET: {
+            env->interpreter = mp_interpreter_init(parse_tree, arena);
+        } break;
+
+        case MP_MODE_COMPILE: {
+            MP_Program program = {0};
+
+            if (!mp_program_compile(&program, parse_tree)) {
+                free(env);
+                mp_arena_free(&arena);
+                mp_da_free(&program);
+                return NULL;
+            }
+
+            mp_arena_free(&arena);
+
+            env->vm = mp_vm_init(program);
+        } break;
+
+        default: {
+            assert(false && "Unreachable MP_MODE");
+        } break;
+    }
 
     mp_variable(env, 'p', MP_PI);
     mp_variable(env, 'e', MP_E);
 
     return env;
+
 }
 
 void mp_variable(MP_Env *env, char var, double value)
 {
-    mp_vm_var(&env->vm, var, value);
+    if (env == NULL)
+        return;
+
+    switch (env->mode) {
+        case MP_MODE_INTERPRET: {
+            mp_interpreter_var(&env->interpreter, var, value);
+        } break;
+
+        case MP_MODE_COMPILE: {
+            mp_vm_var(&env->vm, var, value);
+        } break;
+
+        default: {
+            assert(false && "Unreachable MP_MODE");
+        } break;
+    }
 }
 
 MP_Result mp_evaluate(MP_Env *env)
 {
     MP_Result result = {0};
 
-    if (!mp_vm_run(&env->vm)) {
+    if (env == NULL) {
         result.error = true;
         return result;
     }
 
-    result.value = mp_vm_result(&env->vm);
+    switch (env->mode) {
+        case MP_MODE_INTERPRET: {
+            result = mp_interpret(&env->interpreter);
+        } break;
+
+        case MP_MODE_COMPILE: {
+            if (!mp_vm_run(&env->vm)) {
+                result.error = true;
+                return result;
+            }
+
+            result.value = mp_vm_result(&env->vm);
+        } break;
+
+        default: {
+            assert(false && "Unreachable MP_MODE");
+        } break;
+    }
+
     return result;
 }
 
@@ -1194,8 +1341,21 @@ void mp_free(MP_Env *env)
     if (env == NULL)
         return;
 
-    mp_da_free(&env->program);
-    mp_vm_free(&env->vm);
+    switch (env->mode) {
+        case MP_MODE_INTERPRET: {
+            mp_interpreter_free(&env->interpreter);
+        } break;
+
+        case MP_MODE_COMPILE: {
+            mp_vm_free(&env->vm);
+        } break;
+
+        default: {
+            assert(false && "Unreachable MP_MODE");
+        } break;
+    }
+
+    free(env);
 }
 
 #endif // MP_IMPLEMENTATION
@@ -1203,6 +1363,7 @@ void mp_free(MP_Env *env)
 /*
     Revision history:
 
+        1.2.0 (2025-06-01) Now interpreter supports variables. Various fixes. Improved modularity
         1.1.4 (2025-05-23) Set mathematical constants in mp_init such as PI and E
         1.1.3 (2025-05-23) Fix operator precedence for exponentiation
         1.1.2 (2025-05-19) Check if input MP_Env is NULL in mp_free

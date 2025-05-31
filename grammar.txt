@@ -2,8 +2,10 @@ expression = term | ( term ("+" | "-") term )
 
 term = factor | ( factor ( "*" | "/" ) factor )
 
-factor = primary | primary "^" primary
+factor = primary | primary "^" primary | function
 
 primary = unary | NUMBER | SYMBOL | ( "(" expression ")" )
+
+function = NAME "(" expression ")"
 
 unary = ( "+" | "-" ) factor
