@@ -18,10 +18,6 @@ After these two have processed the input expression a parse tree will be
 created. For evaluating this parse tree, an interpreter and a basic virtual
 machine have been implemented in this library.
 
-In the simplified API of the library the compilation approach for the virtual
-machine is used by default since it is preferred for the computational speed
-advantage.
-
 Examples can be found in the examples folder. A simple REPL and an example of
 the usage of the simplified API can be found in the root directory of the
 repository.
