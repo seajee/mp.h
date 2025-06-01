@@ -41,7 +41,7 @@ int main(void)
         }
 
         /* Print */
-        printf("%.10g\n", result.value);
+        printf("%f\n", result.value);
         mp_free(mp);
         mp = NULL;
     }

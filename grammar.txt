@@ -6,6 +6,7 @@ factor = primary | primary "^" primary | function
 
 primary = unary | NUMBER | SYMBOL | ( "(" expression ")" )
 
+
 function = NAME "(" expression ")"
 
 unary = ( "+" | "-" ) factor

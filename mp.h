@@ -1,4 +1,4 @@
-// mp - v1.2.0 - MIT License - https://github.com/seajee/mp.h
+// mp - v1.3.0 - MIT License - https://github.com/seajee/mp.h
 
 // TODO: Include documentation on how to use the library
 
@@ -18,6 +18,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define MP_STR_UNKNOWN "?"
 
 //------------------------
 // Mathematical constants
@@ -80,11 +82,14 @@ void mp_arena_reset(MP_Arena *arena);
 // Tokenizer
 //-----------
 
+#define MP_NAME_CAPACITY 4
+
 typedef enum {
     MP_TOKEN_INVALID,
     MP_TOKEN_EOF,
     MP_TOKEN_NUMBER,
     MP_TOKEN_SYMBOL,
+    MP_TOKEN_NAME,
     MP_TOKEN_PLUS,
     MP_TOKEN_MINUS,
     MP_TOKEN_MULTIPLY,
@@ -101,6 +106,7 @@ typedef struct {
     union {
         double value;
         char symbol;
+        char name[MP_NAME_CAPACITY + 1]; // +1 for '\0'
     };
 } MP_Token;
 
@@ -122,6 +128,7 @@ typedef enum {
     MP_ERROR_INVALID_EXPRESSION,
     MP_ERROR_EMPTY_EXPRESSION,
     MP_ERROR_INVALID_NODE,
+    MP_ERROR_INVALID_FUNCTION,
     MP_ERROR_ZERO_DIVISION,
     MP_ERROR_COUNT
 } MP_Error_Type;
@@ -152,6 +159,7 @@ typedef enum {
     MP_NODE_INVALID,
     MP_NODE_NUMBER,
     MP_NODE_SYMBOL,
+    MP_NODE_FUNCTION,
     MP_NODE_ADD,
     MP_NODE_SUBTRACT,
     MP_NODE_MULTIPLY,
@@ -161,6 +169,17 @@ typedef enum {
     MP_NODE_MINUS,
     MP_NODE_COUNT
 } MP_Node_Type;
+
+#define MP_FUNCTION_STR_LN  "ln"
+#define MP_FUNCTION_STR_SIN "sin"
+
+// TODO: Add support for more functions such as log(), cos(), tan(), sqrt()...
+typedef enum {
+    MP_FUNCTION_INVALID,
+    MP_FUNCTION_LN,
+    MP_FUNCTION_SIN,
+    MP_FUNCTION_COUNT
+} MP_Function;
 
 typedef struct MP_Tree_Node MP_Tree_Node;
 
@@ -176,6 +195,11 @@ struct MP_Tree_Node {
         struct {
             MP_Tree_Node *node;
         } unary;
+
+        struct {
+            MP_Function name;
+            MP_Tree_Node *arg;
+        } function;
 
         union {
             double value;
@@ -200,6 +224,8 @@ MP_Tree_Node *mp_make_node_symbol(MP_Arena *a, char symbol);
 MP_Tree_Node *mp_make_node_unary(MP_Arena *a, MP_Node_Type t, MP_Tree_Node *node);
 MP_Tree_Node *mp_make_node_binop(MP_Arena *a, MP_Node_Type t,
                                  MP_Tree_Node *lhs, MP_Tree_Node *rhs);
+MP_Tree_Node *mp_make_node_function(MP_Arena *a, const MP_Token *name,
+                                    MP_Tree_Node *arg);
 
 MP_Result mp_parse(MP_Arena *a, MP_Parse_Tree *tree, MP_Token_List list);
 void mp_parser_advance(MP_Parser *parser);
@@ -209,6 +235,8 @@ MP_Tree_Node *mp_parse_factor(MP_Arena *a, MP_Parser *parser, MP_Result *result)
 MP_Tree_Node *mp_parse_primary(MP_Arena *a, MP_Parser *parser, MP_Result *result);
 void mp_print_parse_tree(MP_Parse_Tree tree);
 void mp_print_tree_node(MP_Tree_Node *root);
+
+const char *mp_function_name_to_string(MP_Function name);
 
 //-------------
 // Interpreter
@@ -292,6 +320,7 @@ void mp_vm_free(MP_Vm *vm);
 typedef enum {
     MP_MODE_INTERPRET,
     MP_MODE_COMPILE,
+    MP_MODE_COUNT
 } MP_Mode;
 
 typedef struct {
@@ -440,13 +469,28 @@ MP_Result mp_tokenize(MP_Token_List *list, const char *expr)
                     break;
                 }
 
-                // Symbols
+                // Symbols / Names
                 if (islower(c)) {
+                    // Symbol
                     if (cursor >= end - 1 || !islower(expr[cursor + 1])) {
                         token.type = MP_TOKEN_SYMBOL;
                         token.symbol = c;
                         mp_da_append(list, token);
                         ++cursor;
+                        break;
+                    }
+
+                    // Name
+                    token.type = MP_TOKEN_NAME;
+                    size_t name_len = 0;
+                    do {
+                        token.name[name_len++] = expr[cursor];
+                        cursor++;
+                    } while (name_len <= MP_NAME_CAPACITY
+                            && cursor < end && islower(expr[cursor]));
+
+                    if (name_len <= MP_NAME_CAPACITY) {
+                        mp_da_append(list, token);
                         break;
                     }
                 }
@@ -472,6 +516,7 @@ const char *mp_token_to_string(MP_Token token)
         case MP_TOKEN_INVALID:  return "TOKEN_INVALID";
         case MP_TOKEN_NUMBER:   return "TOKEN_NUMBER";
         case MP_TOKEN_SYMBOL:   return "TOKEN_SYMBOL";
+        case MP_TOKEN_NAME:     return "TOKEN_NAME";
         case MP_TOKEN_PLUS:     return "TOKEN_PLUS";
         case MP_TOKEN_MINUS:    return "TOKEN_MINUS";
         case MP_TOKEN_MULTIPLY: return "TOKEN_MULTIPLY";
@@ -479,7 +524,7 @@ const char *mp_token_to_string(MP_Token token)
         case MP_TOKEN_POWER:    return "TOKEN_POWER";
         case MP_TOKEN_LPAREN:   return "TOKEN_LPAREN";
         case MP_TOKEN_RPAREN:   return "TOKEN_RPAREN";
-        default:                return "?";
+        default:                return MP_STR_UNKNOWN;
     }
 }
 
@@ -492,6 +537,8 @@ void mp_print_token_list(MP_Token_List list)
             printf(" %f", token.value);
         } else if (token.type == MP_TOKEN_SYMBOL) {
             printf(" %c", token.symbol);
+        } else if (token.type == MP_TOKEN_NAME) {
+            printf(" %s", token.name);
         }
         printf("\n");
     }
@@ -505,6 +552,7 @@ const char *mp_error_to_string(MP_Error_Type err)
         case MP_ERROR_INVALID_EXPRESSION: return "Invalid expression";
         case MP_ERROR_EMPTY_EXPRESSION:   return "Empty expression";
         case MP_ERROR_INVALID_NODE:       return "Invalid expression";
+        case MP_ERROR_INVALID_FUNCTION:   return "Invalid function";
         case MP_ERROR_ZERO_DIVISION:      return "Division by zero";
         default:                          return "Unknown error";
     }
@@ -517,6 +565,25 @@ MP_Tree_Node *mp_make_node_binop(MP_Arena *a, MP_Node_Type t,
     r->type = t;
     r->binop.lhs = lhs;
     r->binop.rhs = rhs;
+    return r;
+}
+
+MP_Tree_Node *mp_make_node_function(MP_Arena *a, const MP_Token *name,
+                                    MP_Tree_Node *arg)
+{
+    MP_Tree_Node *r = mp_arena_alloc(a, sizeof(*r));
+    r->type = MP_NODE_FUNCTION;
+    
+    const char *name_str = name->name;
+    if (strcmp(MP_FUNCTION_STR_LN, name_str) == 0) {
+        r->function.name = MP_FUNCTION_LN;
+    } else if (strcmp(MP_FUNCTION_STR_SIN, name_str) == 0) {
+        r->function.name = MP_FUNCTION_SIN;
+    } else {
+        r->function.name = MP_FUNCTION_INVALID;
+    }
+
+    r->function.arg = arg;
     return r;
 }
 
@@ -628,8 +695,36 @@ MP_Tree_Node *mp_parse_term(MP_Arena *a, MP_Parser *parser, MP_Result *result)
 
 MP_Tree_Node *mp_parse_factor(MP_Arena *a, MP_Parser *parser, MP_Result *result)
 {
-    MP_Tree_Node *result_node = mp_parse_primary(a, parser, result);
     MP_Token *cur = &parser->current;
+    MP_Tree_Node *result_node;
+
+    if (cur->type == MP_TOKEN_NAME) {
+        MP_Token name = parser->current;
+        mp_parser_advance(parser);
+
+        if (cur->type != MP_TOKEN_LPAREN) {
+            result->error = true;
+            result->error_type = MP_ERROR_INVALID_EXPRESSION;
+            result->error_position = cur->position;
+            return NULL;
+        }
+        mp_parser_advance(parser);
+
+        result_node = mp_make_node_function(a, &name,
+                mp_parse_expr(a, parser, result));
+
+        if (cur->type != MP_TOKEN_RPAREN) {
+            result->error = true;
+            result->error_type = MP_ERROR_INVALID_EXPRESSION;
+            result->error_position = cur->position;
+            return NULL;
+        }
+
+        mp_parser_advance(parser);
+        return result_node;
+    }
+
+    result_node = mp_parse_primary(a, parser, result);
 
     if (cur->type == MP_TOKEN_POWER) {
         mp_parser_advance(parser);
@@ -716,6 +811,12 @@ void mp_print_tree_node(MP_Tree_Node *root)
             printf("%c", root->symbol);
         } break;
 
+        case MP_NODE_FUNCTION: {
+            printf("%s(", mp_function_name_to_string(root->function.name));
+            mp_print_tree_node(root->function.arg);
+            printf(")");
+        } break;
+
         case MP_NODE_ADD: {
             printf("add(");
             mp_print_tree_node(root->binop.lhs);
@@ -769,8 +870,17 @@ void mp_print_tree_node(MP_Tree_Node *root)
         } break;
 
         default: {
-            printf("?");
+            printf(MP_STR_UNKNOWN);
         } break;
+    }
+}
+
+const char *mp_function_name_to_string(MP_Function name)
+{
+    switch (name) {
+        case MP_FUNCTION_LN:  return MP_FUNCTION_STR_LN;
+        case MP_FUNCTION_SIN: return MP_FUNCTION_STR_SIN;
+        default:              return MP_STR_UNKNOWN;
     }
 }
 
@@ -819,6 +929,28 @@ MP_Result mp_interpret_node(MP_Interpreter *interpreter, MP_Tree_Node *root)
         case MP_NODE_SYMBOL: {
             assert('a' <= root->symbol && root->symbol <= 'z');
             result.value = interpreter->vars[root->symbol - 'a'];
+            return result;
+        } break;
+
+        case MP_NODE_FUNCTION: {
+            MP_Result arg = mp_interpret_node(interpreter, root->function.arg);
+            if (arg.error) return arg;
+
+            switch (root->function.name) {
+                case MP_FUNCTION_LN:
+                    result.value = log(arg.value);
+                    break;
+
+                case MP_FUNCTION_SIN:
+                    result.value = sin(arg.value);
+                    break;
+
+                default:
+                    result.error = true;
+                    result.error_type = MP_ERROR_INVALID_FUNCTION;
+                    break;
+            }
+
             return result;
         } break;
 
@@ -913,6 +1045,8 @@ void mp_interpreter_free(MP_Interpreter *interpreter)
 //----------
 // Compiler
 //----------
+
+// TODO: Implement function evaluation in the compiler and the VM
 
 bool mp_program_compile(MP_Program *p, MP_Parse_Tree parse_tree)
 {
@@ -1242,6 +1376,10 @@ MP_Env *mp_init_mode(const char *expression, MP_Mode mode)
         return NULL;
     }
 
+    printf("\n============================\n");
+    mp_print_token_list(token_list);
+    printf("============================\n\n");
+
     MP_Arena arena = {0};
     MP_Parse_Tree parse_tree = {0};
 
@@ -1252,6 +1390,10 @@ MP_Env *mp_init_mode(const char *expression, MP_Mode mode)
         mp_arena_free(&arena);
         return NULL;
     }
+
+    printf("\n============================\n");
+    mp_print_parse_tree(parse_tree);
+    printf("============================\n\n");
 
     mp_da_free(&token_list);
 
@@ -1365,6 +1507,7 @@ void mp_free(MP_Env *env)
 /*
     Revision history:
 
+        1.3.0 (2025-06-01) Add function support (ln, sin) to the interpreter
         1.2.0 (2025-06-01) Now interpreter supports variables. Various fixes. Improved modularity
         1.1.4 (2025-05-23) Set mathematical constants in mp_init such as PI and E
         1.1.3 (2025-05-23) Fix operator precedence for exponentiation
