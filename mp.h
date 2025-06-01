@@ -1212,6 +1212,8 @@ void mp_vm_free(MP_Vm *vm)
 // Simplified API
 //----------------
 
+// TODO: In this API, MP_Result's won't contain detailed data about errors
+
 MP_Env *mp_init(const char *expression)
 {
     return mp_init_mode(expression, MP_MODE_INTERPRET);
