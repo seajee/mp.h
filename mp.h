@@ -1,4 +1,4 @@
-// mp - v1.3.0 - MIT License - https://github.com/seajee/mp.h
+// mp - v1.4.0 - MIT License - https://github.com/seajee/mp.h
 
 // TODO: Include documentation on how to use the library
 
@@ -170,14 +170,21 @@ typedef enum {
     MP_NODE_COUNT
 } MP_Node_Type;
 
-#define MP_FUNCTION_STR_LN  "ln"
-#define MP_FUNCTION_STR_SIN "sin"
+#define MP_FUNCTION_STR_LN   "ln"
+#define MP_FUNCTION_STR_LOG  "log"
+#define MP_FUNCTION_STR_SIN  "sin"
+#define MP_FUNCTION_STR_COS  "cos"
+#define MP_FUNCTION_STR_TAN  "tan"
+#define MP_FUNCTION_STR_SQRT "sqrt"
 
-// TODO: Add support for more functions such as log(), cos(), tan(), sqrt()...
 typedef enum {
     MP_FUNCTION_INVALID,
     MP_FUNCTION_LN,
+    MP_FUNCTION_LOG,
     MP_FUNCTION_SIN,
+    MP_FUNCTION_COS,
+    MP_FUNCTION_TAN,
+    MP_FUNCTION_SQRT,
     MP_FUNCTION_COUNT
 } MP_Function;
 
@@ -577,8 +584,22 @@ MP_Tree_Node *mp_make_node_function(MP_Arena *a, const MP_Token *name,
     const char *name_str = name->name;
     if (strcmp(MP_FUNCTION_STR_LN, name_str) == 0) {
         r->function.name = MP_FUNCTION_LN;
+
+    } else if (strcmp(MP_FUNCTION_STR_LOG, name_str) == 0) {
+        r->function.name = MP_FUNCTION_LOG;
+
     } else if (strcmp(MP_FUNCTION_STR_SIN, name_str) == 0) {
         r->function.name = MP_FUNCTION_SIN;
+
+    } else if (strcmp(MP_FUNCTION_STR_COS, name_str) == 0) {
+        r->function.name = MP_FUNCTION_COS;
+
+    } else if (strcmp(MP_FUNCTION_STR_TAN, name_str) == 0) {
+        r->function.name = MP_FUNCTION_TAN;
+
+    } else if (strcmp(MP_FUNCTION_STR_SQRT, name_str) == 0) {
+        r->function.name = MP_FUNCTION_SQRT;
+
     } else {
         r->function.name = MP_FUNCTION_INVALID;
     }
@@ -878,9 +899,13 @@ void mp_print_tree_node(MP_Tree_Node *root)
 const char *mp_function_name_to_string(MP_Function name)
 {
     switch (name) {
-        case MP_FUNCTION_LN:  return MP_FUNCTION_STR_LN;
-        case MP_FUNCTION_SIN: return MP_FUNCTION_STR_SIN;
-        default:              return MP_STR_UNKNOWN;
+        case MP_FUNCTION_LN:   return MP_FUNCTION_STR_LN;
+        case MP_FUNCTION_LOG:  return MP_FUNCTION_STR_LOG;
+        case MP_FUNCTION_SIN:  return MP_FUNCTION_STR_SIN;
+        case MP_FUNCTION_COS:  return MP_FUNCTION_STR_COS;
+        case MP_FUNCTION_TAN:  return MP_FUNCTION_STR_TAN;
+        case MP_FUNCTION_SQRT: return MP_FUNCTION_STR_SQRT;
+        default:               return MP_STR_UNKNOWN;
     }
 }
 
@@ -941,8 +966,24 @@ MP_Result mp_interpret_node(MP_Interpreter *interpreter, MP_Tree_Node *root)
                     result.value = log(arg.value);
                     break;
 
+                case MP_FUNCTION_LOG:
+                    result.value = log10(arg.value);
+                    break;
+
                 case MP_FUNCTION_SIN:
                     result.value = sin(arg.value);
+                    break;
+
+                case MP_FUNCTION_COS:
+                    result.value = cos(arg.value);
+                    break;
+
+                case MP_FUNCTION_TAN:
+                    result.value = tan(arg.value);
+                    break;
+
+                case MP_FUNCTION_SQRT:
+                    result.value = sqrt(arg.value);
                     break;
 
                 default:
@@ -1376,10 +1417,6 @@ MP_Env *mp_init_mode(const char *expression, MP_Mode mode)
         return NULL;
     }
 
-    printf("\n============================\n");
-    mp_print_token_list(token_list);
-    printf("============================\n\n");
-
     MP_Arena arena = {0};
     MP_Parse_Tree parse_tree = {0};
 
@@ -1390,10 +1427,6 @@ MP_Env *mp_init_mode(const char *expression, MP_Mode mode)
         mp_arena_free(&arena);
         return NULL;
     }
-
-    printf("\n============================\n");
-    mp_print_parse_tree(parse_tree);
-    printf("============================\n\n");
 
     mp_da_free(&token_list);
 
@@ -1507,6 +1540,7 @@ void mp_free(MP_Env *env)
 /*
     Revision history:
 
+        1.4.0 (2025-06-01) Add functions log(), cos(), tan(), sqrt()
         1.3.0 (2025-06-01) Add function support (ln, sin) to the interpreter
         1.2.0 (2025-06-01) Now interpreter supports variables. Various fixes. Improved modularity
         1.1.4 (2025-05-23) Set mathematical constants in mp_init such as PI and E
