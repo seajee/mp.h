@@ -34,7 +34,7 @@ int main(void)
 
         MP_Result result = mp_evaluate(mp);
         if (result.error) {
-            fprintf(stderr, "TODO\n");
+            fprintf(stderr, "ERROR: Invalid expression\n");
             mp_free(mp);
             mp = NULL;
             continue;
